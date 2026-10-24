@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Neon Pinball — Arcadeline</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#05010a;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+canvas{display:block;width:100vw;height:100vh;height:100dvh}
+#load{position:fixed;inset:0;z-index:10;background:radial-gradient(circle at 50% 45%,#2a0505,#05010a 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.5vh;transition:opacity .6s}
+#load .p{letter-spacing:.4em;font-size:clamp(12px,3.4vw,22px);color:#ffd6d6;opacity:0;animation:fi 1s .2s forwards}
+#load .t{font-weight:900;font-size:clamp(38px,12vw,110px);color:#ff2b2b;text-shadow:0 0 12px #ff2b2b,0 0 34px #f00;opacity:0;animation:fl 1.2s 1.6s forwards,sh .35s 1.6s 3}
+#load .g{font-size:clamp(13px,3.8vw,24px);color:#ffb347;opacity:0;animation:fi .8s 3s forwards;text-align:center;padding:0 5vw}
+#bar{width:min(70vw,420px);height:14px;border:2px solid #ff2b2b;border-radius:3px;overflow:hidden;opacity:0;animation:fi .5s 3.3s forwards}
+#bar i{display:block;height:100%;width:0;background:repeating-linear-gradient(90deg,#ffb347 0 8px,#7a4a00 8px 12px);animation:fill 3.1s 3.4s linear forwards}
+@keyframes fi{to{opacity:1}}@keyframes fill{to{width:100%}}
+@keyframes fl{0%{opacity:0}10%{opacity:1}20%{opacity:.2}30%{opacity:1}45%{opacity:.4}60%,100%{opacity:1}}
+@keyframes sh{0%,100%{transform:translate(0)}25%{transform:translate(-4px,2px)}75%{transform:translate(4px,-2px)}}
+#ui{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:2vh;background:rgba(5,1,10,.75);z-index:5;text-align:center;padding:5vw}
+#ui h1{font-size:clamp(32px,9vw,72px);color:#3df2ff;text-shadow:0 0 18px #3df2ff}
+#ui p{font-size:clamp(14px,3.8vw,20px);color:#cfe;line-height:1.5}
+#ui button{font:inherit;font-size:clamp(16px,4.5vw,24px);padding:.7em 1.6em;border:2px solid #ff3df2;background:transparent;color:#fff;border-radius:40px;box-shadow:0 0 14px #ff3df2}
+</style></head><body>
+<div id="load"><div class="p">LEONLINK PRESENTS</div><div class="t">ARCADELINE</div><div class="g">Lock and load. No continues.</div><div id="bar"><i></i></div></div>
+<canvas id="c"></canvas>
+<div id="ui"><h1 id="uh">NEON PINBALL</h1><p id="up">Keep the ball alive! Hit bumpers, light all 3 top lanes to raise your multiplier, and shoot up the left ramp lane.<br>Phone: tap left half = left flipper, right half = right flipper (hold both to launch)<br>Keyboard: Left/A and Right/D = flippers, Space = launch, P = pause</p><button id="ub">START</button></div>
+<script>
+const cv=document.getElementById('c'),x=cv.getContext('2d'),ui=document.getElementById('ui'),uh=document.getElementById('uh'),up=document.getElementById('up'),ub=document.getElementById('ub');
+const TW=400,TH=700;let W,H,S,ox,oy,D=1;
+function rs(){D=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;cv.width=W*D;cv.height=H*D;S=Math.min(W/TW,H/TH);ox=(W-TW*S)/2;oy=(H-TH*S)/2}
+addEventListener('resize',rs);rs();
+let st='load',paused=false,hi=+(localStorage.npHi||0),sc=0,balls=3,mult=1,lanes=[0,0,0],ball,L=false,R=false,la=0,ra=0,launch=false,msg='',msgT=0,last=0;
+const walls=[[20,700,20,120],[20,120,80,40],[80,40,320,40],[320,40,380,100],[380,100,380,700],[350,700,350,160],[20,560,120,630],[350,560,250,630],[60,470,60,540],[60,540,110,575],[310,470,310,540],[310,540,260,575]];
+const bumpers=[{x:130,y:200,r:22,f:0},{x:240,y:200,r:22,f:0},{x:185,y:280,r:24,f:0},{x:90,y:340,r:14,f:0},{x:280,y:340,r:14,f:0}];
+const laneX=[110,185,260],FL={x:120,y:630,len:62},FR={x:250,y:630,len:62};
+function newBall(){ball={x:365,y:650,vx:0,vy:0,r:9,inL:true}}
+function reset(){sc=0;balls=3;mult=1;lanes=[0,0,0];newBall()}
+function say(m){msg=m;msgT=1.6}
+function seg(b,x1,y1,x2,y2,e,vx2,vy2){vx2=vx2||0;vy2=vy2||0;const dx=x2-x1,dy=y2-y1;let t=((b.x-x1)*dx+(b.y-y1)*dy)/(dx*dx+dy*dy);t=Math.max(0,Math.min(1,t));const px=x1+t*dx,py=y1+t*dy,ex=b.x-px,ey=b.y-py,d=Math.hypot(ex,ey);if(d<b.r&&d>0){const nx=ex/d,ny=ey/d;b.x=px+nx*b.r;b.y=py+ny*b.r;const vn=(b.vx-vx2)*nx+(b.vy-vy2)*ny;if(vn<0){b.vx-=(1+e)*vn*nx;b.vy-=(1+e)*vn*ny}}}
+function fEnd(f,a,s){const g=s<0?(0.5-a):(Math.PI-0.5+a);return [f.x+Math.cos(g)*f.len,f.y+Math.sin(g)*f.len]}
+function step(dt){
+ const pl=la,pr=ra;la=Math.max(0,Math.min(1,la+(L?1:-1)*dt*14));ra=Math.max(0,Math.min(1,ra+(R?1:-1)*dt*14));
+ const b=ball;
+ if(b.inL){if(launch||(L&&R)){b.vy=-(900+Math.random()*120);b.inL=false}launch=false;return}
+ launch=false;const n=5,h=dt/n;
+ for(let k=0;k<n;k++){
+  b.vy+=620*h;b.x+=b.vx*h;b.y+=b.vy*h;
+  for(const w of walls)seg(b,w[0],w[1],w[2],w[3],.45);
+  for(const u of bumpers){const dx=b.x-u.x,dy=b.y-u.y,d=Math.hypot(dx,dy);if(d<u.r+b.r){const nx=dx/d,ny=dy/d;b.x=u.x+nx*(u.r+b.r);b.y=u.y+ny*(u.r+b.r);const vn=b.vx*nx+b.vy*ny;if(vn<0){b.vx-=2*vn*nx;b.vy-=2*vn*ny}b.vx+=nx*240;b.vy+=ny*240;if(u.f<.5)sc+=(u.r>20?100:50)*mult;u.f=1}}
+  [[FL,la,pl,-1],[FR,ra,pr,1]].forEach(q=>{const f=q[0],e=fEnd(f,q[1],q[3]),w=(q[1]-q[2])/dt;let vx2=0,vy2=0;if(w>0){const dist=Math.min(f.len,Math.hypot(b.x-f.x,b.y-f.y));vx2=q[3]*-.25*w*dist;vy2=-w*dist}seg(b,f.x,f.y,e[0],e[1],.3,vx2,vy2)});
+  const v=Math.hypot(b.vx,b.vy);if(v>1300){b.vx*=1300/v;b.vy*=1300/v}
+ }
+ if(b.y<78&&b.y>46)laneX.forEach((lx,i)=>{if(Math.abs(b.x-lx)<14&&!lanes[i]){lanes[i]=1;sc+=250*mult;if(lanes.every(q=>q)){mult=Math.min(mult+1,8);lanes=[0,0,0];say('MULTIPLIER x'+mult)}}});
+ if(b.x<58&&b.x>22&&b.y>230&&b.y<290&&b.vy<-150){sc+=500*mult;say('RAMP +'+500*mult);b.vy-=250}
+ bumpers.forEach(u=>u.f=Math.max(0,u.f-dt*4));
+ if(b.y>720){balls--;if(balls<=0)return over();say('BALL LOST');mult=1;newBall()}
+}
+function over(){st='over';if(sc>hi){hi=sc;localStorage.npHi=hi}uh.textContent='GAME OVER';up.innerHTML='Score: '+sc+'<br>Best: '+hi;ub.textContent='PLAY AGAIN';ui.style.display='flex'}
+function gl(c,b){x.strokeStyle=c;x.shadowColor=c;x.shadowBlur=b}
+function draw(){
+ x.setTransform(D,0,0,D,0,0);x.shadowBlur=0;x.fillStyle='#05010a';x.fillRect(0,0,W,H);x.save();x.translate(ox,oy);x.scale(S,S);
+ x.lineWidth=4;x.lineCap='round';gl('#3df2ff',12);x.beginPath();walls.forEach(w=>{x.moveTo(w[0],w[1]);x.lineTo(w[2],w[3])});x.stroke();
+ gl('#ffe23d',14);x.lineWidth=6;x.beginPath();x.moveTo(40,232);x.lineTo(40,288);x.stroke();
+ laneX.forEach((lx,i)=>{x.lineWidth=3;gl(lanes[i]?'#3dff8a':'#666',lanes[i]?14:0);x.beginPath();x.arc(lx,62,9,0,7);x.stroke();if(lanes[i]){x.fillStyle='#3dff8a';x.fill()}});
+ bumpers.forEach(u=>{gl('#ff3df2',10+u.f*25);x.lineWidth=4;x.beginPath();x.arc(u.x,u.y,u.r,0,7);x.fillStyle=u.f>0?'#ff9df8':'#3a0838';x.fill();x.stroke()});
+ [[FL,la,-1],[FR,ra,1]].forEach(q=>{const e=fEnd(q[0],q[1],q[2]);gl('#ffb347',16);x.lineWidth=11;x.beginPath();x.moveTo(q[0].x,q[0].y);x.lineTo(e[0],e[1]);x.stroke()});
+ x.shadowColor='#fff';x.shadowBlur=18;x.fillStyle='#fff';x.beginPath();x.arc(ball.x,ball.y,ball.r,0,7);x.fill();
+ x.shadowBlur=0;x.fillStyle='#cfe';x.font='bold 18px system-ui';x.textAlign='left';x.fillText('SCORE '+sc,28,28);x.textAlign='right';x.fillText('BALLS '+balls+'  x'+mult,372,28);
+ x.textAlign='center';x.font='13px system-ui';x.fillStyle='#888';x.fillText('BEST '+hi,185,690);
+ if(ball.inL){x.fillStyle='#ffe23d';x.font='bold 14px system-ui';x.fillText('SPACE / HOLD BOTH SIDES TO LAUNCH',185,470)}
+ if(msgT>0){x.fillStyle='#ffe23d';x.shadowColor='#ffe23d';x.shadowBlur=14;x.font='bold 28px system-ui';x.fillText(msg,185,420)}
+ if(paused){x.fillStyle='#fff';x.font='bold 40px system-ui';x.fillText('PAUSED',185,380)}
+ x.restore()}
+function loop(t){const dt=Math.min(.033,(t-last)/1000||0);last=t;if(st==='play'&&!paused){step(dt);msgT-=dt}if(st!=='load')draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+function start(){reset();st='play';paused=false;ui.style.display='none'}
+const K={ArrowLeft:'L',a:'L',A:'L',ArrowRight:'R',d:'R',D:'R'};
+addEventListener('keydown',e=>{if(K[e.key]==='L')L=true;if(K[e.key]==='R')R=true;if(e.key===' '||e.key==='ArrowDown'||e.key==='s'){if(st==='play')launch=true;else if(ui.style.display==='flex')start()}if(e.key==='p'||e.key==='P')paused=!paused;e.preventDefault()});
+addEventListener('keyup',e=>{if(K[e.key]==='L')L=false;if(K[e.key]==='R')R=false});
+function tc(e){if(st!=='play')return;L=R=false;for(const t of e.touches){if(t.clientX<W/2)L=true;else R=true}e.preventDefault()}
+cv.addEventListener('touchstart',tc,{passive:false});cv.addEventListener('touchmove',tc,{passive:false});cv.addEventListener('touchend',tc,{passive:false});cv.addEventListener('touchcancel',tc,{passive:false});
+ub.onclick=start;newBall();
+setTimeout(()=>{const l=document.getElementById('load');l.style.opacity=0;setTimeout(()=>l.remove(),600);st='menu';ui.style.display='flex'},7000);
+</script></body></html>

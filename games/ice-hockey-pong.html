@@ -1,0 +1,76 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Ice Hockey Pong | Arcadeline</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#05060f;overflow:hidden;font-family:"Courier New",monospace;color:#fff;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+#s{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .8s;z-index:10;background:#05060f}
+.p{letter-spacing:.5em;font-size:max(10px,2.2vmin);color:#9fdcff;opacity:0;animation:f 1s .3s forwards}
+#s h1{font-size:12vmin;margin:.3em 0;text-shadow:0 0 10px #7fd8ff,0 0 30px #ff3bd4;opacity:0;transform:scale(.3);animation:r 1.2s 1.5s cubic-bezier(.2,1.6,.4,1) forwards}
+.t{font-size:max(13px,3vmin);color:#ff8bf0;opacity:0;animation:f 1s 3s forwards}
+.b{width:50vmin;height:2.4vmin;border:2px solid #7fd8ff;border-radius:2vmin;margin-top:5vmin;overflow:hidden;box-shadow:0 0 12px #7fd8ff}
+.b i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7fd8ff,#ff3bd4);animation:g 6.2s .3s linear forwards}
+.ball{position:absolute;bottom:8vmin;left:-10vmin;width:4vmin;height:4vmin;border-radius:50%;background:#eaf8ff;box-shadow:0 0 15px #fff;animation:roll 6.4s .3s ease-in forwards}
+@keyframes f{to{opacity:1}}@keyframes r{to{opacity:1;transform:scale(1)}}@keyframes g{to{width:100%}}
+@keyframes roll{to{left:110vw;width:14vmin;height:14vmin;transform:rotate(1080deg)}}
+canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-action:none}
+#ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#05060fdd;text-align:center;padding:4vmin;z-index:5}
+#ov h2{font-size:max(28px,9vmin);margin:0;text-shadow:0 0 10px #7fd8ff,0 0 30px #ff3bd4}
+#ov p{font-size:max(14px,3vmin);color:#ccd;max-width:90vw}
+button{font:inherit;font-size:max(18px,4vmin);padding:2vmin 6vmin;border:2px solid #ff3bd4;border-radius:3vmin;background:#1a0a2a;color:#fff;box-shadow:0 0 15px #ff3bd4}
+</style></head><body>
+<div id="s"><div class="p">LEONLINK PRESENTS</div><h1>ARCADELINE</h1><div class="t">Start small. Roll big.</div><div class="b"><i></i></div><div class="ball"></div></div>
+<canvas id="c"></canvas>
+<div id="ov"><h2 id="ttl">ICE HOCKEY PONG</h2><p id="msg">Beat the CPU on neon ice. First to 7 wins.<br>Touch: drag your paddle in the bottom half. Keys: arrows / WASD, P to pause, Enter or Space to start.</p><button id="go">PLAY</button></div>
+<script>
+const $=id=>document.getElementById(id),c=$('c'),x=c.getContext('2d');
+let W,H,S,run=false,paused=false,P,C,B,ps=0,cs=0,best=+(localStorage.ihpBest||0),keys={},tgt=null,serveT=0,diff=1,flash=0;
+function rs(){const d=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;c.width=W*d;c.height=H*d;x.setTransform(d,0,0,d,0,0);S=Math.min(W,H);if(P){P.r=C.r=S*.07;B.r=S*.03;clamp(P,1);clamp(C,0)}}
+addEventListener('resize',rs);rs();
+function reset(){P={x:W/2,y:H*.85,r:S*.07,vx:0,vy:0};C={x:W/2,y:H*.15,r:S*.07,vx:0,vy:0};ps=cs=0;diff=1;serve(1)}
+function serve(d){B={x:W/2,y:H/2,r:S*.03,vx:0,vy:0,dir:d};serveT=.9}
+function clamp(o,me){o.x=Math.max(o.r,Math.min(W-o.r,o.x));const lo=me?H/2+o.r:o.r,hi=me?H-o.r:H/2-o.r;o.y=Math.max(lo,Math.min(hi,o.y))}
+let ac;function beep(f,d){try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;g.gain.value=.05;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
+function hit(m){const dx=B.x-m.x,dy=B.y-m.y,d=Math.hypot(dx,dy),R=m.r+B.r;if(d<R&&d>0){const nx=dx/d,ny=dy/d;B.x=m.x+nx*R;B.y=m.y+ny*R;const rv=(B.vx-m.vx)*nx+(B.vy-m.vy)*ny;if(rv<0){B.vx-=1.9*rv*nx;B.vy-=1.9*rv*ny}B.vx+=m.vx*.3;B.vy+=m.vy*.3;let sp=Math.hypot(B.vx,B.vy);const mx=S*2.4*diff;if(sp>mx){B.vx*=mx/sp;B.vy*=mx/sp}if(sp<S*.5){B.vx=nx*S*.5;B.vy=ny*S*.5}beep(600,.04)}}
+function step(dt){
+ const ox=P.x,oy=P.y,sp=S*1.6;
+ if(tgt){const k=Math.min(1,dt*25);P.x+=(tgt.x-P.x)*k;P.y+=(tgt.y-P.y)*k}
+ const kx=(keys.arrowright||keys.d?1:0)-(keys.arrowleft||keys.a?1:0),ky=(keys.arrowdown||keys.s?1:0)-(keys.arrowup||keys.w?1:0);
+ P.x+=kx*sp*dt;P.y+=ky*sp*dt;clamp(P,1);P.vx=(P.x-ox)/dt;P.vy=(P.y-oy)/dt;
+ const cx0=C.x,cy0=C.y,cv=S*(.75+.1*ps)*diff;let tx=B.x,ty=B.y<H/2?B.y-B.r:H*.15;if(B.y>H/2)tx=W/2+(B.x-W/2)*.4;
+ const ddx=tx-C.x,ddy=ty-C.y,dd=Math.hypot(ddx,ddy);if(dd>1){const m=Math.min(dd,cv*dt);C.x+=ddx/dd*m;C.y+=ddy/dd*m}
+ clamp(C,0);C.vx=(C.x-cx0)/dt;C.vy=(C.y-cy0)/dt;
+ if(serveT>0){serveT-=dt;if(serveT<=0){B.vx=(Math.random()-.5)*S*.6;B.vy=B.dir*S*.7}return}
+ const gw=W*.36;
+ for(let i=0;i<4;i++){B.x+=B.vx*dt/4;B.y+=B.vy*dt/4;hit(P);hit(C);
+  if(B.x<B.r){B.x=B.r;B.vx=Math.abs(B.vx);beep(300,.03)}if(B.x>W-B.r){B.x=W-B.r;B.vx=-Math.abs(B.vx);beep(300,.03)}
+  const inG=Math.abs(B.x-W/2)<gw/2-B.r;
+  if(B.y<B.r){if(inG){if(B.y<-B.r)return goal(1)}else{B.y=B.r;B.vy=Math.abs(B.vy)}}
+  if(B.y>H-B.r){if(inG){if(B.y>H+B.r)return goal(0)}else{B.y=H-B.r;B.vy=-Math.abs(B.vy)}}}
+ const f=Math.pow(.996,dt*60);B.vx*=f;B.vy*=f;diff+=dt*.004;
+}
+function goal(me){flash=.4;me?ps++:cs++;beep(me?900:200,.25);if(navigator.vibrate)navigator.vibrate(60);if(ps>=7||cs>=7)return end(ps>=7);serve(me?-1:1)}
+function end(win){run=false;if(ps>best){best=ps;localStorage.ihpBest=best}$('ttl').textContent=win?'YOU WIN!':'CPU WINS';$('msg').innerHTML='Final score '+ps+' - '+cs+'<br>Best goals in a game: '+best;$('go').textContent='PLAY AGAIN';$('ov').style.display='flex'}
+function draw(){
+ x.fillStyle='#05060f';x.fillRect(0,0,W,H);
+ if(flash>0){x.fillStyle='rgba(255,59,212,'+flash*.5+')';x.fillRect(0,0,W,H)}
+ x.lineWidth=2;x.strokeStyle='#7fd8ff55';x.beginPath();x.moveTo(0,H/2);x.lineTo(W,H/2);x.stroke();x.beginPath();x.arc(W/2,H/2,S*.15,0,7);x.stroke();
+ const gw=W*.36;x.lineWidth=6;x.shadowBlur=15;x.strokeStyle=x.shadowColor='#ff3bd4';x.beginPath();x.moveTo(W/2-gw/2,3);x.lineTo(W/2+gw/2,3);x.stroke();
+ x.strokeStyle=x.shadowColor='#7fd8ff';x.beginPath();x.moveTo(W/2-gw/2,H-3);x.lineTo(W/2+gw/2,H-3);x.stroke();
+ x.shadowBlur=0;x.font='bold '+Math.max(28,S*.1)+'px Courier New';x.textAlign='center';x.fillStyle='#ff3bd466';x.fillText(cs,W/2,H/2-S*.04);x.fillStyle='#7fd8ff66';x.fillText(ps,W/2,H/2+S*.11);
+ const disc=(o,col)=>{x.shadowBlur=20;x.shadowColor=col;x.fillStyle='#0b1030';x.strokeStyle=col;x.lineWidth=S*.012;x.beginPath();x.arc(o.x,o.y,o.r,0,7);x.fill();x.stroke();x.beginPath();x.arc(o.x,o.y,o.r*.4,0,7);x.fillStyle=col;x.fill()};
+ disc(C,'#ff3bd4');disc(P,'#7fd8ff');x.shadowColor='#fff';x.fillStyle='#eaf8ff';x.beginPath();x.arc(B.x,B.y,B.r,0,7);x.fill();x.shadowBlur=0;
+ if(paused){x.fillStyle='#fff';x.fillText('PAUSED',W/2,H/2+S*.04)}
+}
+let last=0;function loop(t){const dt=Math.min(.033,(t-last)/1000||.016);last=t;if(run&&!paused)step(dt);if(flash>0)flash-=dt;if(P)draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);
+function start(){reset();run=true;paused=false;$('ov').style.display='none'}
+$('go').onclick=start;
+function pt(e){const t=e.touches?e.touches[0]:e;return{x:t.clientX,y:Math.max(H/2,t.clientY-S*.06)}}
+c.addEventListener('touchstart',e=>{e.preventDefault();tgt=pt(e)},{passive:false});
+c.addEventListener('touchmove',e=>{e.preventDefault();tgt=pt(e)},{passive:false});
+c.addEventListener('touchend',()=>tgt=null);
+c.addEventListener('mousedown',e=>tgt=pt(e));c.addEventListener('mousemove',e=>{if(e.buttons)tgt=pt(e)});addEventListener('mouseup',()=>tgt=null);
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=1;tgt=null;if(k.startsWith('arrow')||k==' ')e.preventDefault();
+ if((k=='enter'||k==' ')&&!run&&!$('s'))start();if(k=='p'&&run)paused=!paused});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);
+reset();
+setTimeout(()=>{$('s').style.opacity=0;setTimeout(()=>$('s').remove(),800)},6200);
+</script></body></html>

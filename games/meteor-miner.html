@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Meteor Miner — Arcadeline</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#05010a;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+canvas{display:block;width:100vw;height:100vh;height:100dvh}
+#load{position:fixed;inset:0;z-index:10;background:radial-gradient(circle at 50% 45%,#2a0505,#05010a 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.5vh;transition:opacity .6s}
+#load .p{letter-spacing:.4em;font-size:clamp(12px,3.4vw,22px);color:#ffd6d6;opacity:0;animation:fi 1s .2s forwards}
+#load .t{font-weight:900;font-size:clamp(38px,12vw,110px);color:#ff2b2b;text-shadow:0 0 12px #ff2b2b,0 0 34px #f00;opacity:0;animation:fl 1.2s 1.6s forwards,sh .35s 1.6s 3}
+#load .g{font-size:clamp(13px,3.8vw,24px);color:#ffb347;opacity:0;animation:fi .8s 3s forwards;text-align:center;padding:0 5vw}
+#bar{width:min(70vw,420px);height:14px;border:2px solid #ff2b2b;border-radius:3px;overflow:hidden;opacity:0;animation:fi .5s 3.3s forwards}
+#bar i{display:block;height:100%;width:0;background:repeating-linear-gradient(90deg,#ffb347 0 8px,#7a4a00 8px 12px);animation:fill 3.1s 3.4s linear forwards}
+@keyframes fi{to{opacity:1}}@keyframes fill{to{width:100%}}
+@keyframes fl{0%{opacity:0}10%{opacity:1}20%{opacity:.2}30%{opacity:1}45%{opacity:.4}60%,100%{opacity:1}}
+@keyframes sh{0%,100%{transform:translate(0)}25%{transform:translate(-4px,2px)}75%{transform:translate(4px,-2px)}}
+#ui{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:2vh;background:rgba(5,1,10,.75);z-index:5;text-align:center;padding:5vw}
+#ui h1{font-size:clamp(32px,9vw,72px);color:#3df2ff;text-shadow:0 0 18px #3df2ff}
+#ui p{font-size:clamp(14px,3.8vw,20px);color:#cfe;line-height:1.5}
+#ui button{font:inherit;font-size:clamp(16px,4.5vw,24px);padding:.7em 1.6em;border:2px solid #ff3df2;background:transparent;color:#fff;border-radius:40px;box-shadow:0 0 14px #ff3df2}
+</style></head><body>
+<div id="load"><div class="p">LEONLINK PRESENTS</div><div class="t">ARCADELINE</div><div class="g">Lock and load. No continues.</div><div id="bar"><i></i></div></div>
+<canvas id="c"></canvas>
+<div id="ui"><h1 id="uh">METEOR MINER</h1><p id="up">Drag to steer · ship fires automatically<br>Keyboard: arrows/WASD to move, Space to fire, P to pause<br>Shoot rocks, grab the gold ore, don't crash.</p><button id="ub">START</button></div>
+<script>
+const cv=document.getElementById('c'),x=cv.getContext('2d'),ui=document.getElementById('ui'),uh=document.getElementById('uh'),up=document.getElementById('up'),ub=document.getElementById('ub');
+let W,H,S;function rs(){const d=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;cv.width=W*d;cv.height=H*d;x.setTransform(d,0,0,d,0,0);S=Math.min(W,H)/600}
+addEventListener('resize',rs);rs();
+let st='load',sh,rocks,shots,ores,parts,stars=[],sc,ore,hi=+(localStorage.mmHi||0),lives,inv,cd,t0,lvl,paused=false,keys={},tgt=null,last=0;
+for(let i=0;i<90;i++)stars.push({x:Math.random(),y:Math.random(),z:Math.random()*.8+.2});
+function reset(){sh={x:W/2,y:H*.8};rocks=[];shots=[];ores=[];parts=[];sc=0;ore=0;lives=3;inv=2;cd=0;t0=0;lvl=1}
+function spawn(sz,px,py){const r=(sz||(Math.random()<.3?3:Math.random()<.6?2:1));const a=[];const n=9;for(let i=0;i<n;i++)a.push(.75+Math.random()*.35);
+ rocks.push({x:px??Math.random()*W,y:py??-60*S,r:r*16*S,sz:r,vx:(Math.random()-.5)*1.6*S,vy:(1+Math.random()*1.5+lvl*.25)*S,a:Math.random()*6,va:(Math.random()-.5)*.05,sh:a,hp:r})}
+function boom(px,py,c,n){for(let i=0;i<n;i++){const a=Math.random()*6.28,v=Math.random()*4*S;parts.push({x:px,y:py,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:30+Math.random()*20,c})}}
+function start(){reset();st='play';ui.style.display='none'}
+ub.onclick=start;
+setTimeout(()=>{document.getElementById('load').style.opacity=0;setTimeout(()=>{document.getElementById('load').remove();st='menu';ui.style.display='flex'},600)},7000);
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=1;if(e.key.toLowerCase()=='p'&&st=='play')paused=!paused;if((e.key==' '||e.key=='Enter')&&st!='play'&&st!='load')start();if(e.key.startsWith('Arrow')||e.key==' ')e.preventDefault()});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);
+cv.addEventListener('pointerdown',e=>{tgt={x:e.clientX,y:e.clientY-70*S}});cv.addEventListener('pointermove',e=>{if(tgt)tgt={x:e.clientX,y:e.clientY-70*S}});
+addEventListener('pointerup',()=>tgt=null);
+function update(){
+ t0++;lvl=1+Math.floor(t0/1500);
+ const sp=6*S;let dx=(keys.arrowright||keys.d?1:0)-(keys.arrowleft||keys.a?1:0),dy=(keys.arrowdown||keys.s?1:0)-(keys.arrowup||keys.w?1:0);
+ sh.x+=dx*sp;sh.y+=dy*sp;if(tgt){sh.x+=(tgt.x-sh.x)*.25;sh.y+=(tgt.y-sh.y)*.25}
+ sh.x=Math.max(20*S,Math.min(W-20*S,sh.x));sh.y=Math.max(40*S,Math.min(H-30*S,sh.y));
+ if(--cd<=0){shots.push({x:sh.x,y:sh.y-22*S});cd=9}
+ if(Math.random()<.018+lvl*.006)spawn();
+ shots.forEach(s=>s.y-=12*S);shots=shots.filter(s=>s.y>-10&&!s.d);
+ rocks.forEach(r=>{r.x+=r.vx;r.y+=r.vy;r.a+=r.va;if(r.x<-r.r)r.x=W+r.r;if(r.x>W+r.r)r.x=-r.r;
+  shots.forEach(s=>{if(!s.d&&Math.hypot(s.x-r.x,s.y-r.y)<r.r){s.d=1;r.hp--;boom(s.x,s.y,'#ffb347',3);if(r.hp<=0)r.d=1}});
+  if(r.d){sc+=r.sz*10;boom(r.x,r.y,'#bba',14);if(r.sz>1){spawn(r.sz-1,r.x-8,r.y);spawn(r.sz-1,r.x+8,r.y)}if(Math.random()<.35+r.sz*.1)ores.push({x:r.x,y:r.y,v:r.sz})}
+  if(!r.d&&inv<=0&&Math.hypot(sh.x-r.x,sh.y-r.y)<r.r+12*S){r.d=1;lives--;inv=120;boom(sh.x,sh.y,'#ff2b2b',30);if(navigator.vibrate)navigator.vibrate(120);if(lives<=0)over()}});
+ rocks=rocks.filter(r=>!r.d&&r.y<H+80*S);inv--;
+ ores.forEach(o=>{o.y+=1.5*S;const d=Math.hypot(sh.x-o.x,sh.y-o.y);if(d<120*S){o.x+=(sh.x-o.x)*.08;o.y+=(sh.y-o.y)*.08}if(d<20*S){o.d=1;ore+=o.v;sc+=25*o.v;boom(o.x,o.y,'#ffd700',6)}});
+ ores=ores.filter(o=>!o.d&&o.y<H+20);
+ parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.l--});parts=parts.filter(p=>p.l>0);
+}
+function over(){st='over';if(sc>hi){hi=sc;localStorage.mmHi=hi}uh.textContent='GAME OVER';up.innerHTML='Score '+sc+' · Ore '+ore+'<br>Best '+hi;ub.textContent='PLAY AGAIN';ui.style.display='flex'}
+function draw(){
+ x.fillStyle='#05010a';x.fillRect(0,0,W,H);
+ stars.forEach(s=>{s.y+=s.z*.003;if(s.y>1)s.y=0;x.fillStyle='rgba(200,230,255,'+s.z+')';x.fillRect(s.x*W,s.y*H,s.z*2,s.z*2)});
+ if(!sh)return;
+ x.shadowBlur=10;
+ rocks.forEach(r=>{x.save();x.translate(r.x,r.y);x.rotate(r.a);x.beginPath();r.sh.forEach((k,i)=>{const a=i/r.sh.length*6.28;x.lineTo(Math.cos(a)*r.r*k,Math.sin(a)*r.r*k)});x.closePath();x.fillStyle='#2a1a3a';x.fill();x.strokeStyle='#ff3df2';x.shadowColor='#ff3df2';x.lineWidth=2;x.stroke();x.restore()});
+ x.fillStyle='#3df2ff';x.shadowColor='#3df2ff';shots.forEach(s=>x.fillRect(s.x-2*S,s.y-8*S,4*S,14*S));
+ x.fillStyle='#ffd700';x.shadowColor='#ffd700';ores.forEach(o=>{x.beginPath();x.moveTo(o.x,o.y-8*S);x.lineTo(o.x+6*S,o.y);x.lineTo(o.x,o.y+8*S);x.lineTo(o.x-6*S,o.y);x.fill()});
+ parts.forEach(p=>{x.globalAlpha=p.l/50;x.fillStyle=p.c;x.fillRect(p.x,p.y,3,3)});x.globalAlpha=1;
+ if(st=='play'&&(inv<=0||Math.floor(inv/6)%2)){x.save();x.translate(sh.x,sh.y);x.strokeStyle='#3df2ff';x.shadowColor='#3df2ff';x.lineWidth=2.5;x.beginPath();x.moveTo(0,-22*S);x.lineTo(15*S,16*S);x.lineTo(0,9*S);x.lineTo(-15*S,16*S);x.closePath();x.stroke();
+  x.fillStyle='#ffb347';x.shadowColor='#ffb347';x.fillRect(-3*S,12*S,6*S,(6+Math.random()*8)*S);x.restore()}
+ x.shadowBlur=0;x.fillStyle='#fff';x.font='bold '+Math.max(14,18*S)+'px system-ui';x.textAlign='left';x.fillText('SCORE '+sc+'   ORE '+ore,12,28);x.textAlign='right';x.fillText('♥'.repeat(Math.max(lives,0))+'  BEST '+hi,W-12,28);
+ if(paused){x.textAlign='center';x.font='bold '+40*S+'px system-ui';x.fillText('PAUSED',W/2,H/2)}
+}
+function loop(ts){if(ts-last>=15){last=ts;if(st=='play'&&!paused)update();draw()}requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script></body></html>

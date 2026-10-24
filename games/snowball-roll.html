@@ -1,0 +1,75 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Snowball Roll - Arcadeline</title>
+<style>
+html,body{margin:0;height:100%;background:#05060f;overflow:hidden;font-family:"Courier New",monospace;color:#fff}
+#s{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .8s}
+.p{letter-spacing:.5em;font-size:2.2vmin;color:#9fdcff;opacity:0;animation:f 1s .3s forwards}
+h1{font-size:12vmin;margin:.3em 0;color:#fff;text-shadow:0 0 10px #7fd8ff,0 0 30px #ff3bd4;opacity:0;transform:scale(.3);animation:r 1.2s 1.5s cubic-bezier(.2,1.6,.4,1) forwards}
+.t{font-size:3vmin;color:#ff8bf0;opacity:0;animation:f 1s 3s forwards}
+.b{width:50vmin;height:2.4vmin;border:2px solid #7fd8ff;border-radius:2vmin;margin-top:5vmin;overflow:hidden;box-shadow:0 0 12px #7fd8ff}
+.b i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7fd8ff,#ff3bd4);animation:g 5.6s .6s linear forwards}
+.ball{position:absolute;bottom:8vmin;left:-10vmin;width:4vmin;height:4vmin;border-radius:50%;background:#eaf8ff;box-shadow:0 0 15px #fff;animation:roll 6.2s .3s ease-in forwards}
+@keyframes f{to{opacity:1}}@keyframes r{to{opacity:1;transform:scale(1)}}@keyframes g{to{width:100%}}
+@keyframes roll{to{left:110vw;width:14vmin;height:14vmin;transform:rotate(1080deg)}}
+#game{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-size:5vmin;opacity:0;transition:opacity .8s}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+#hud{position:fixed;top:env(safe-area-inset-top,0);left:0;right:0;display:flex;justify-content:space-between;padding:10px 14px;font-size:clamp(14px,4vmin,24px);text-shadow:0 0 8px #7fd8ff;pointer-events:none;z-index:2}
+#ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(5,6,15,.8);z-index:3;text-align:center;padding:20px;box-sizing:border-box}
+#ov h2{font-size:clamp(28px,9vmin,64px);margin:0 0 10px;text-shadow:0 0 10px #7fd8ff,0 0 24px #ff3bd4}
+#ov p{font-size:clamp(14px,3.6vmin,22px);color:#9fdcff;margin:6px}
+#ov button{margin-top:18px;font:inherit;font-size:clamp(18px,5vmin,30px);padding:12px 30px;border-radius:30px;border:2px solid #7fd8ff;background:transparent;color:#fff;box-shadow:0 0 14px #ff3bd4}
+#s{z-index:10;background:#05060f}
+body{touch-action:none;user-select:none;-webkit-user-select:none}
+</style></head><body>
+<div id="s"><div class="p">LEONLINK PRESENTS</div><h1>ARCADELINE</h1><div class="t">Start small. Roll big.</div><div class="b"><i></i></div><div class="ball"></div></div>
+<canvas id="c"></canvas>
+<div id="hud"><span id="sc">0 m</span><span id="sz">Size 1.0</span><span id="hi">Best 0</span></div>
+<div id="ov"><h2 id="ot">SNOWBALL ROLL</h2><p id="om">Roll downhill. Eat smaller snow to grow.<br>Once you're big enough, smash rocks and trees.<br>Hit anything bigger and you shrink. Too small and it's over.</p><p>Drag or hold a side of the screen &middot; Arrow keys or A/D</p><button id="go">PLAY</button></div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');let W,H,D=1;
+const $=i=>document.getElementById(i);let best=+localStorage.getItem('sr_best')||0;$('hi').textContent='Best '+best;
+let st='menu',p=null,obs=[],parts=[],dist=0,speed=0,spawn=0,keys={},tx=null,last=0,flash=0;
+function rs(){D=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;c.width=W*D;c.height=H*D;x.setTransform(D,0,0,D,0,0);if(p)p.y=H*.72}
+addEventListener('resize',rs);rs();
+function reset(){p={x:W/2,y:H*.72,r:14,vx:0,rot:0};obs=[];parts=[];dist=0;speed=180;spawn=0;flash=0}
+function U(){return Math.min(W,H)/400}
+function add(){const t=Math.random(),o={x:20+Math.random()*(W-40),y:-60};
+ if(t<.45){o.k='snow';o.r=5+Math.random()*Math.max(8,p.r*.8)}
+ else if(t<.75){o.k='rock';o.r=8+Math.random()*(10+p.r*1.1)}
+ else{o.k='tree';o.r=10+Math.random()*(12+p.r*1.2)}obs.push(o)}
+function boom(X,Y,col,n){for(let i=0;i<n;i++)parts.push({x:X,y:Y,vx:(Math.random()-.5)*300,vy:(Math.random()-.5)*300,l:.6,col})}
+function step(dt){const u=U(),ax=(keys.r?1:0)-(keys.l?1:0);
+ if(tx!==null)p.vx=(tx-p.x)*8;else{p.vx+=ax*1400*dt;p.vx*=Math.pow(.02,dt)}
+ p.x=Math.max(p.r*u,Math.min(W-p.r*u,p.x+p.vx*dt));speed+=6*dt;const v=speed*u;dist+=v*dt/40;p.rot+=v*dt/(p.r*u);
+ spawn-=dt;if(spawn<=0){add();spawn=Math.max(.18,.7-dist/3000)}
+ for(let i=obs.length-1;i>=0;i--){const o=obs[i];o.y+=v*dt;if(o.y>H+80){obs.splice(i,1);continue}
+  const R=o.r*u*.9,dx=o.x-p.x,dy=o.y-p.y;if(dx*dx+dy*dy<(R+p.r*u*.9)**2){
+   if(o.k=='snow'){if(o.r<p.r){p.r+=o.r*.18;boom(o.x,o.y,'#eaf8ff',6)}else{p.r-=o.r*.3;flash=.3;boom(o.x,o.y,'#eaf8ff',10)}}
+   else if(o.r<p.r*.8){p.r+=1;boom(o.x,o.y,o.k=='rock'?'#8a93b8':'#3dffa8',14)}
+   else{p.r-=o.r*.5;flash=.4;boom(o.x,o.y,'#ff3bd4',16)}
+   obs.splice(i,1);if(p.r<6){over();return}}}
+ p.r=Math.min(p.r,60);
+ for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.l-=dt;if(q.l<=0)parts.splice(i,1)}
+ flash=Math.max(0,flash-dt);$('sc').textContent=Math.floor(dist)+' m';$('sz').textContent='Size '+(p.r/14).toFixed(1)}
+function draw(){const u=U();x.fillStyle='#0a1030';x.fillRect(0,0,W,H);
+ x.strokeStyle='rgba(127,216,255,.12)';x.lineWidth=1;const off=(dist*40)%40;for(let y=-40+off;y<H;y+=40){x.beginPath();x.moveTo(0,y);x.lineTo(W,y);x.stroke()}
+ for(const o of obs){const R=o.r*u,sm=p&&o.r<p.r*.8;x.save();x.translate(o.x,o.y);
+  if(o.k=='snow'){x.fillStyle='#dff4ff';x.shadowColor='#fff';x.shadowBlur=8;x.beginPath();x.arc(0,0,R,0,7);x.fill()}
+  else if(o.k=='rock'){x.fillStyle=sm?'#6c7aa8':'#b0b8d8';x.shadowColor='#7fd8ff';x.shadowBlur=6;x.beginPath();x.moveTo(-R,R*.6);x.lineTo(-R*.6,-R*.7);x.lineTo(R*.5,-R*.8);x.lineTo(R,R*.6);x.closePath();x.fill()}
+  else{x.fillStyle=sm?'#1f9e6a':'#3dffa8';x.shadowColor='#3dffa8';x.shadowBlur=10;x.beginPath();x.moveTo(0,-R*1.3);x.lineTo(R,R*.7);x.lineTo(-R,R*.7);x.closePath();x.fill();x.fillStyle='#8a5a3a';x.fillRect(-R*.15,R*.7,R*.3,R*.4)}
+  x.restore()}
+ if(p){const R=p.r*u;x.save();x.translate(p.x,p.y);x.rotate(p.rot);x.shadowColor=flash?'#ff3bd4':'#7fd8ff';x.shadowBlur=20;x.fillStyle=flash?'#ffd0f4':'#f2fbff';x.beginPath();x.arc(0,0,R,0,7);x.fill();x.shadowBlur=0;x.strokeStyle='rgba(127,216,255,.6)';x.lineWidth=2;x.beginPath();x.arc(0,0,R*.6,0,2);x.stroke();x.restore()}
+ for(const q of parts){x.globalAlpha=Math.max(0,q.l/.6);x.fillStyle=q.col;x.fillRect(q.x,q.y,3,3)}x.globalAlpha=1}
+function loop(t){const dt=Math.min(.05,(t-last)/1000||0);last=t;if(st=='play')step(dt);draw();requestAnimationFrame(loop)}
+function over(){st='over';const s=Math.floor(dist);if(s>best){best=s;localStorage.setItem('sr_best',s)}$('hi').textContent='Best '+best;
+ $('ot').textContent='WIPEOUT';$('om').innerHTML='You rolled '+s+' m<br>Best: '+best+' m';$('go').textContent='ROLL AGAIN';$('ov').style.display='flex'}
+function start(){reset();st='play';$('ov').style.display='none'}
+$('go').onclick=start;
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(k=='arrowleft'||k=='a')keys.l=1;if(k=='arrowright'||k=='d')keys.r=1;if((k==' '||k=='enter')&&st!='play'&&!document.getElementById('s'))start()});
+addEventListener('keyup',e=>{const k=e.key.toLowerCase();if(k=='arrowleft'||k=='a')keys.l=0;if(k=='arrowright'||k=='d')keys.r=0});
+c.addEventListener('pointerdown',e=>{tx=e.clientX});c.addEventListener('pointermove',e=>{if(tx!==null)tx=e.clientX});
+['pointerup','pointercancel','pointerleave'].forEach(n=>c.addEventListener(n,()=>{tx=null}));
+requestAnimationFrame(loop);
+setTimeout(()=>{const s=document.getElementById('s');s.style.opacity=0;setTimeout(()=>s.remove(),800)},6200);
+</script>
+
+</body></html>

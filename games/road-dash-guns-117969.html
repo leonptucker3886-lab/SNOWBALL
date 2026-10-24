@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Road Dash — Arcadeline</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#05010a;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+canvas{display:block;width:100vw;height:100vh;height:100dvh}
+#load{position:fixed;inset:0;z-index:10;background:radial-gradient(circle at 50% 45%,#2a0505,#05010a 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.5vh;transition:opacity .6s}
+#load .p{letter-spacing:.4em;font-size:clamp(12px,3.4vw,22px);color:#ffd6d6;opacity:0;animation:fi 1s .2s forwards}
+#load .t{font-weight:900;font-size:clamp(38px,12vw,110px);color:#ff2b2b;text-shadow:0 0 12px #ff2b2b,0 0 34px #f00;opacity:0;animation:fl 1.2s 1.6s forwards,sh .35s 1.6s 3}
+#load .g{font-size:clamp(13px,3.8vw,24px);color:#ffb347;opacity:0;animation:fi .8s 3s forwards;text-align:center;padding:0 5vw}
+#bar{width:min(70vw,420px);height:14px;border:2px solid #ff2b2b;border-radius:3px;overflow:hidden;opacity:0;animation:fi .5s 3.3s forwards}
+#bar i{display:block;height:100%;width:0;background:repeating-linear-gradient(90deg,#ffb347 0 8px,#7a4a00 8px 12px);animation:fill 3.1s 3.4s linear forwards}
+@keyframes fi{to{opacity:1}}@keyframes fill{to{width:100%}}
+@keyframes fl{0%{opacity:0}10%{opacity:1}20%{opacity:.2}30%{opacity:1}45%{opacity:.4}60%,100%{opacity:1}}
+@keyframes sh{0%,100%{transform:translate(0)}25%{transform:translate(-4px,2px)}75%{transform:translate(4px,-2px)}}
+#ui{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:2vh;background:rgba(5,1,10,.75);z-index:5;text-align:center;padding:5vw}
+#ui h1{font-size:clamp(32px,9vw,72px);color:#3df2ff;text-shadow:0 0 18px #3df2ff}
+#ui p{font-size:clamp(14px,3.8vw,20px);color:#cfe;line-height:1.5}
+#ui button{font:inherit;font-size:clamp(16px,4.5vw,24px);padding:.7em 1.6em;border:2px solid #ff3df2;background:transparent;color:#fff;border-radius:40px;box-shadow:0 0 14px #ff3df2}
+</style></head><body>
+<div id="load"><div class="p">LEONLINK PRESENTS</div><div class="t">ARCADELINE</div><div class="g">Lock and load. No continues.</div><div id="bar"><i></i></div></div>
+<canvas id="c"></canvas>
+<div id="ui"><h1 id="uh">ROAD DASH</h1><p id="up">Swipe or tap to hop · tap = forward<br>Keyboard: arrows/WASD, P to pause<br>Dodge cars, ride logs, don't fall in the river.</p><button id="ub">START</button></div>
+<script>
+const cv=document.getElementById('c'),x=cv.getContext('2d'),ui=document.getElementById('ui'),uh=document.getElementById('uh'),up=document.getElementById('up'),ub=document.getElementById('ub');
+const COLS=9;let W,H,T,OX;
+function rs(){const d=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;cv.width=W*d;cv.height=H*d;x.setTransform(d,0,0,d,0,0);T=Math.floor(Math.min(W/COLS,H/11));OX=(W-T*COLS)/2}
+addEventListener('resize',rs);rs();
+let st='load',rows,P,cam,sc,hi=+(localStorage.rdHi||0),last=0,dead=0;
+function mkRow(i){if(i<3)return{t:'g',o:[]};const r=Math.random(),lvl=Math.min(i/60,1);let t=r<.25?'g':r<.65+lvl*.05?'r':'w';
+ if(t=='g'){const o=[];for(let c=0;c<COLS;c++)if(Math.random()<.18&&c!=4)o.push(c);return{t,o}}
+ const dir=Math.random()<.5?1:-1,sp=(t=='r'?(1.4+Math.random()*1.6+lvl*2.5):(0.9+Math.random()*1.2+lvl))*dir,items=[];
+ if(t=='r'){const len=Math.random()<.25?2:1,gap=3+Math.floor(Math.random()*3);for(let p=0;p<COLS+6;p+=len+gap)items.push({x:p-3,l:len,c:['#ff3df2','#3df2ff','#ffb347','#ff2b2b'][Math.floor(Math.random()*4)]})}
+ else{const len=2+Math.floor(Math.random()*2),gap=2+Math.floor(Math.random()*2);for(let p=0;p<COLS+6;p+=len+gap)items.push({x:p-3,l:len})}
+ return{t,sp,items,span:COLS+6}}
+function row(i){while(rows.length<=i)rows.push(mkRow(rows.length));return rows[i]}
+function reset(){rows=[];P={c:4,r:0,fx:4,hop:0,dc:0,dr:0};cam=0;sc=0;dead=0}
+function blocked(c,r){if(c<0||c>=COLS||r<0)return true;const R=row(r);return R.t=='g'&&R.o.includes(c)}
+function move(dc,dr){if(st!='play'||P.hop>0)return;const nc=Math.round(P.fx)+dc,nr=P.r+dr;if(blocked(nc,nr))return;P.fx=nc;P.r=nr;P.hop=.12;if(P.r>sc){sc=P.r}}
+function die(m){if(st!='play')return;st='over';if(sc>hi){hi=sc;localStorage.rdHi=hi}uh.textContent=m;up.innerHTML='Score '+sc+'<br>Best '+hi;ub.textContent='PLAY AGAIN';ui.style.display='flex'}
+function upd(dt){if(st!='play')return;if(P.hop>0)P.hop-=dt;
+ for(let i=Math.max(0,Math.floor(cam)-2);i<cam+16;i++){const R=row(i);if(R.items)for(const it of R.items){it.x+=R.sp*dt;if(R.sp>0&&it.x>COLS+3)it.x-=R.span;if(R.sp<0&&it.x+it.l<-3)it.x+=R.span}}
+ const R=row(P.r);
+ if(R.t=='r'){for(const it of R.items)if(P.fx+.8>it.x+.1&&P.fx+.2<it.x+it.l-.1)return die('SPLAT!')}
+ if(R.t=='w'&&P.hop<=0){let on=null;for(const it of R.items)if(P.fx+.5>it.x&&P.fx+.5<it.x+it.l)on=it;if(!on)return die('SPLASH!');P.fx+=R.sp*dt;if(P.fx<-.4||P.fx>COLS-.6)return die('SWEPT AWAY!')}
+ const target=Math.max(0,P.r-3);cam+=(target-cam)*Math.min(1,dt*6);cam+=dt*Math.min(.15+sc/400,.6);
+ if(P.r<cam-1.2)die('TOO SLOW!')}
+function sy(r){return H-(r-cam+1)*T-T*.5}
+function draw(){x.fillStyle='#05010a';x.fillRect(0,0,W,H);
+ const r0=Math.max(0,Math.floor(cam)-2),r1=Math.ceil(cam+H/T+1);
+ for(let i=r0;i<=r1;i++){const R=row(i),y=sy(i);
+  x.fillStyle=R.t=='g'?'#0d2a12':R.t=='r'?'#14121c':'#061a3a';x.fillRect(OX,y,T*COLS,T);
+  if(R.t=='r'){x.strokeStyle='#ffffff22';x.setLineDash([T*.3,T*.3]);x.beginPath();x.moveTo(OX,y+T);x.lineTo(OX+T*COLS,y+T);x.stroke();x.setLineDash([])}
+  if(R.t=='g')for(const c of R.o){x.fillStyle='#1fd35a';x.shadowColor='#1fd35a';x.shadowBlur=10;x.beginPath();x.arc(OX+(c+.5)*T,y+T*.5,T*.36,0,7);x.fill();x.shadowBlur=0}
+  if(R.items)for(const it of R.items){const ix=OX+it.x*T;
+   if(R.t=='r'){x.fillStyle=it.c;x.shadowColor=it.c;x.shadowBlur=14;x.fillRect(ix+T*.08,y+T*.15,it.l*T-T*.16,T*.7);x.shadowBlur=0;x.fillStyle='#fff8';const f=R.sp>0?ix+it.l*T-T*.25:ix+T*.12;x.fillRect(f,y+T*.25,T*.12,T*.5)}
+   else{x.fillStyle='#8a5a2b';x.fillRect(ix+T*.05,y+T*.18,it.l*T-T*.1,T*.64);x.strokeStyle='#ffb34788';x.strokeRect(ix+T*.05,y+T*.18,it.l*T-T*.1,T*.64)}}}
+ x.fillStyle='#05010a';x.fillRect(0,0,OX,H);x.fillRect(OX+T*COLS,0,W,H);
+ const px=OX+(P.fx+.5)*T,py=sy(P.r)+T*.5-(P.hop>0?Math.sin(P.hop/.12*Math.PI)*T*.3:0);
+ x.fillStyle='#ffe14d';x.shadowColor='#ffe14d';x.shadowBlur=18;x.beginPath();x.arc(px,py,T*.32,0,7);x.fill();x.shadowBlur=0;x.fillStyle='#05010a';x.fillRect(px-T*.13,py-T*.1,T*.07,T*.07);x.fillRect(px+T*.06,py-T*.1,T*.07,T*.07);
+ x.fillStyle='#fff';x.font='bold '+Math.max(16,T*.5)+'px system-ui';x.textAlign='left';x.fillText(sc,12,Math.max(28,T*.7));x.textAlign='right';x.fillStyle='#3df2ff';x.fillText('BEST '+hi,W-12,Math.max(28,T*.7));
+ if(st=='pause'){x.textAlign='center';x.fillStyle='#fff';x.fillText('PAUSED',W/2,H/2)}}
+function loop(t){const dt=Math.min((t-last)/1000||0,.05);last=t;if(st!='load'){upd(dt);draw()}requestAnimationFrame(loop)}requestAnimationFrame(loop);
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();
+ if((k=='enter'||k==' ')&&st!='play'&&st!='pause'&&st!='load'){start();return}
+ if(k=='p'){if(st=='play')st='pause';else if(st=='pause')st='play';return}
+ if(k=='arrowup'||k=='w')move(0,1);else if(k=='arrowdown'||k=='s')move(0,-1);else if(k=='arrowleft'||k=='a')move(-1,0);else if(k=='arrowright'||k=='d')move(1,0)});
+let ts=null;cv.addEventListener('touchstart',e=>{e.preventDefault();const t=e.changedTouches[0];ts={x:t.clientX,y:t.clientY}},{passive:false});
+cv.addEventListener('touchend',e=>{e.preventDefault();if(!ts)return;const t=e.changedTouches[0],dx=t.clientX-ts.x,dy=t.clientY-ts.y,m=Math.max(Math.abs(dx),Math.abs(dy));ts=null;
+ if(m<25)return move(0,1);if(Math.abs(dx)>Math.abs(dy))move(dx>0?1:-1,0);else move(0,dy<0?1:-1)},{passive:false});
+cv.addEventListener('mousedown',()=>move(0,1));
+function start(){reset();ui.style.display='none';st='play'}
+ub.addEventListener('click',start);
+setTimeout(()=>{const l=document.getElementById('load');l.style.opacity=0;setTimeout(()=>{l.remove();st='menu';reset();ui.style.display='flex'},600)},7000);
+</script></body></html>

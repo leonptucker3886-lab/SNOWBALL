@@ -1,0 +1,71 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Neon Breakout - Arcadeline</title>
+<style>
+html,body{margin:0;height:100%;background:#05010f;overflow:hidden;font-family:system-ui,sans-serif;color:#fff;touch-action:none;user-select:none;-webkit-user-select:none}
+#load{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#2a0050,#05010f 70%);z-index:10;transition:opacity .6s;text-align:center}
+.pre{letter-spacing:.4em;font-size:clamp(12px,3.2vmin,22px);opacity:0;animation:fi 1s .3s forwards;color:#9ff}
+.ttl{font-weight:900;font-size:clamp(34px,12vmin,110px);margin:3vmin 0 1vmin;color:#ff3df2;text-shadow:0 0 12px #ff3df2,0 0 40px #ff3df2;opacity:0;animation:fi 1s 1.8s forwards}
+.tag{font-size:clamp(14px,4vmin,28px);color:#ffe94d;text-shadow:0 0 10px #ffb800;opacity:0;animation:fi 1s 3s forwards}
+.bar{width:min(70vw,420px);height:10px;border:2px solid #0ff;border-radius:8px;margin-top:5vmin;box-shadow:0 0 12px #0ff;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#0ff,#ff3df2);animation:fill 6.2s .3s linear forwards}
+@keyframes fi{to{opacity:1}}@keyframes fill{to{width:100%}}
+#hud{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:8px 14px;font-weight:700;font-size:clamp(13px,3.5vmin,20px);color:#0ff;text-shadow:0 0 8px #0ff;pointer-events:none}
+#msg{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;text-align:center;background:rgba(5,1,15,.75);z-index:5}
+#msg h1{color:#ff3df2;text-shadow:0 0 16px #ff3df2;font-size:clamp(28px,9vmin,64px);margin:0 0 2vmin}
+#msg p{color:#9ff;font-size:clamp(14px,4vmin,22px);margin:1vmin}
+</style></head><body>
+<div id="load"><div class="pre">LEONLINK PRESENTS</div><div class="ttl">ARCADELINE</div><div class="tag">Insert coin. Lose control.</div><div class="bar"><i></i></div></div>
+<div id="hud"><span id="sc">SCORE 0</span><span id="lv">LEVEL 1</span><span id="li">♥♥♥</span></div>
+<canvas id="c"></canvas>
+<div id="msg"><h1 id="mt">NEON BREAKOUT</h1><p id="ms">Drag, or use arrow keys / A D to move</p><p>Tap or press Space to launch</p></div>
+<script>
+const cv=document.getElementById('c'),x=cv.getContext('2d');let W,H,S;
+let pad={x:200,y:0,w:80,h:12},balls=[],bricks=[],pows=[],parts=[],score=0,lives=3,level=1,state='load',keys={},wideT=0,best=+(localStorage.nbBest||0);
+const COLS=['#ff3df2','#0ff','#ffe94d','#7dff5a','#ff7a3d','#a06bff'];
+function baseW(){return Math.max(60,Math.min(W*.22,140))}
+function rs(){const r=devicePixelRatio||1;W=innerWidth;H=innerHeight;cv.width=W*r;cv.height=H*r;cv.style.width=W+'px';cv.style.height=H+'px';x.setTransform(r,0,0,r,0,0);S=Math.min(W,H)/100;pad.y=H-Math.max(40,H*.08);layout()}
+function build(){bricks=[];const rows=Math.min(4+level,9);for(let r=0;r<rows;r++)for(let c=0;c<8;c++){if(level%3==0&&(r+c)%4==0)continue;bricks.push({r,c,hp:r<Math.floor(level/2)?2:1,col:COLS[(r+level)%6]})}layout()}
+function layout(){const m=Math.max(8,W*.03),bw=(W-m*2)/8,bh=Math.max(14,Math.min(26,H*.03)),top=Math.max(50,H*.09);bricks.forEach(b=>{b.x=m+b.c*bw+2;b.y=top+b.r*(bh+4);b.w=bw-4;b.h=bh})}
+function newBall(){const r=Math.max(6,S*1.4);return{x:pad.x,y:pad.y-r-6,vx:0,vy:0,r,stuck:true}}
+function speed(){return Math.max(280,Math.min(W,H)*.7)*(1+(level-1)*.08)}
+function msg(on,t,s){document.getElementById('msg').style.display=on?'flex':'none';if(t)mt.textContent=t;if(s)ms.textContent=s}
+function hud(){sc.textContent='SCORE '+score;lv.textContent='LEVEL '+level;li.textContent='♥'.repeat(Math.max(lives,0))}
+function start(){score=0;lives=3;level=1;build();balls=[newBall()];pows=[];hud()}
+function launch(){if(state=='load')return;if(state=='over'){start();state='ready'}balls.forEach(b=>{if(b.stuck){b.stuck=false;const a=-Math.PI/2+(Math.random()-.5)*.6,s=speed();b.vx=Math.cos(a)*s;b.vy=Math.sin(a)*s}});state='play';msg(false)}
+function boom(px,py,c){for(let i=0;i<10;i++)parts.push({x:px,y:py,vx:(Math.random()-.5)*300,vy:(Math.random()-.5)*300,l:.5,c})}
+function hitBrick(b){for(const br of bricks){if(br.hp<=0)continue;if(b.x+b.r>br.x&&b.x-b.r<br.x+br.w&&b.y+b.r>br.y&&b.y-b.r<br.y+br.h){const ox=Math.min(b.x+b.r-br.x,br.x+br.w-b.x+b.r),oy=Math.min(b.y+b.r-br.y,br.y+br.h-b.y+b.r);if(ox<oy)b.vx*=-1;else b.vy*=-1;br.hp--;score+=10*level;if(br.hp<=0){boom(br.x+br.w/2,br.y+br.h/2,br.col);if(Math.random()<.15)pows.push({x:br.x+br.w/2,y:br.y,t:'WML'[Math.floor(Math.random()*3)]})}hud();return}}}
+function moveBall(b,dt){const n=Math.ceil(Math.hypot(b.vx,b.vy)*dt/(b.r*.8))||1;for(let k=0;k<n;k++){b.x+=b.vx*dt/n;b.y+=b.vy*dt/n;
+if(b.x<b.r){b.x=b.r;b.vx=Math.abs(b.vx)}if(b.x>W-b.r){b.x=W-b.r;b.vx=-Math.abs(b.vx)}if(b.y<b.r+34){b.y=b.r+34;b.vy=Math.abs(b.vy)}
+if(b.vy>0&&b.y+b.r>pad.y-pad.h/2&&b.y<pad.y+pad.h/2&&Math.abs(b.x-pad.x)<pad.w/2+b.r){const o=(b.x-pad.x)/(pad.w/2),a=-Math.PI/2+o*1.05,s=Math.hypot(b.vx,b.vy);b.vx=Math.cos(a)*s;b.vy=Math.sin(a)*s;b.y=pad.y-pad.h/2-b.r}
+hitBrick(b)}}
+function power(p){if(p.t=='W')wideT=10;if(p.t=='L')lives++;if(p.t=='M'){const nb=[];balls.forEach(b=>{if(!b.stuck)for(const d of[-.4,.4]){const s=Math.hypot(b.vx,b.vy),a=Math.atan2(b.vy,b.vx)+d;nb.push({x:b.x,y:b.y,r:b.r,vx:Math.cos(a)*s,vy:Math.sin(a)*s})}});balls.push(...nb.slice(0,12))}hud()}
+function step(dt){if(keys.l)pad.x-=W*1.2*dt;if(keys.r)pad.x+=W*1.2*dt;wideT-=dt;pad.w=baseW()*(wideT>0?1.6:1);pad.x=Math.min(Math.max(pad.x,pad.w/2),W-pad.w/2);
+parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.l-=dt});parts=parts.filter(p=>p.l>0);
+for(const b of balls)if(b.stuck){b.x=pad.x;b.y=pad.y-b.r-pad.h/2}
+if(state!='play')return;
+for(const b of balls)if(!b.stuck)moveBall(b,dt);
+balls=balls.filter(b=>b.y-b.r<H);
+pows.forEach(p=>{p.y+=H*.25*dt;if(p.y>pad.y-pad.h&&p.y<pad.y+pad.h&&Math.abs(p.x-pad.x)<pad.w/2+10){p.got=1;power(p)}});pows=pows.filter(p=>!p.got&&p.y<H);
+if(!balls.length){lives--;hud();if(lives<=0){state='over';best=Math.max(best,score);localStorage.nbBest=best;msg(true,'GAME OVER','Score '+score+'  |  Best '+best)}else{balls=[newBall()];state='ready'}}
+if(bricks.every(b=>b.hp<=0)){level++;score+=100;build();balls=[newBall()];pows=[];state='ready';hud();msg(true,'LEVEL '+level,'Tap or press Space to launch')}}
+function glow(c,b){x.shadowColor=c;x.shadowBlur=b}
+function draw(){x.shadowBlur=0;x.fillStyle='#05010f';x.fillRect(0,0,W,H);x.strokeStyle='rgba(0,255,255,.06)';x.lineWidth=1;for(let g=0;g<W;g+=30){x.beginPath();x.moveTo(g,0);x.lineTo(g,H);x.stroke()}
+bricks.forEach(b=>{if(b.hp<=0)return;glow(b.col,12);x.fillStyle=b.col;x.globalAlpha=b.hp>1?1:.75;x.fillRect(b.x,b.y,b.w,b.h);if(b.hp>1){x.strokeStyle='#fff';x.strokeRect(b.x+2,b.y+2,b.w-4,b.h-4)}x.globalAlpha=1});
+glow('#0ff',18);x.fillStyle='#0ff';x.fillRect(pad.x-pad.w/2,pad.y-pad.h/2,pad.w,pad.h);
+glow('#fff',16);x.fillStyle='#fff';balls.forEach(b=>{x.beginPath();x.arc(b.x,b.y,b.r,0,7);x.fill()});
+x.font='bold 14px system-ui';x.textAlign='center';x.textBaseline='middle';pows.forEach(p=>{const c={W:'#7dff5a',M:'#ffe94d',L:'#ff3df2'}[p.t];glow(c,14);x.fillStyle=c;x.beginPath();x.arc(p.x,p.y,11,0,7);x.fill();x.fillStyle='#000';x.fillText(p.t,p.x,p.y+1)});
+parts.forEach(p=>{x.globalAlpha=p.l*2;glow(p.c,8);x.fillStyle=p.c;x.fillRect(p.x,p.y,3,3)});x.globalAlpha=1}
+let last=0;function loop(t){const dt=Math.min((t-last)/1000,.033);last=t;step(dt);draw();requestAnimationFrame(loop)}
+addEventListener('resize',rs);
+addEventListener('keydown',e=>{const k=e.key;if(k=='ArrowLeft'||k=='a'||k=='A')keys.l=1;if(k=='ArrowRight'||k=='d'||k=='D')keys.r=1;if(k==' '||k=='Enter'){e.preventDefault();launch()}});
+addEventListener('keyup',e=>{const k=e.key;if(k=='ArrowLeft'||k=='a'||k=='A')keys.l=0;if(k=='ArrowRight'||k=='d'||k=='D')keys.r=0});
+let tStart=null;
+function tmove(e){const t=e.touches?e.touches[0]:e;pad.x=t.clientX}
+addEventListener('touchstart',e=>{e.preventDefault();tStart=Date.now();tmove(e)},{passive:false});
+addEventListener('touchmove',e=>{e.preventDefault();tmove(e)},{passive:false});
+addEventListener('touchend',e=>{e.preventDefault();if(Date.now()-tStart<250||state!='play')launch()},{passive:false});
+addEventListener('mousemove',e=>{if(e.buttons||state=='play')pad.x=e.clientX});
+addEventListener('mousedown',launch);
+rs();pad.x=W/2;start();requestAnimationFrame(loop);
+setTimeout(()=>{const l=document.getElementById('load');l.style.opacity=0;setTimeout(()=>{l.remove();state='ready';msg(true)},600)},6400);
+</script></body></html>

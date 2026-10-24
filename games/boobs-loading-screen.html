@@ -1,0 +1,15 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>LeonLink presents</title>
+<style>
+html,body{margin:0;height:100%;background:#07070f;font-family:"Courier New",monospace;color:#fff;overflow:hidden}
+#ls{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle,#1a0b2e,#07070f);transition:opacity .5s;z-index:9999}
+.p{font-size:clamp(14px,3vw,22px);letter-spacing:.4em;color:#ff3df2;opacity:0;animation:f 1s .3s forwards}
+.t{font-size:clamp(28px,7vw,64px);font-weight:bold;margin:.3em 0;color:#3df8ff;text-shadow:0 0 18px #3df8ff;opacity:0;animation:f 1s 1.2s forwards}
+.g{font-size:clamp(12px,2.4vw,18px);color:#ffe93d;opacity:0;animation:f 1s 2.2s forwards}
+.bar{width:min(70vw,420px);height:14px;border:2px solid #3df8ff;margin-top:2em}
+.fill{height:100%;width:0;background:linear-gradient(90deg,#ff3df2,#3df8ff);animation:l 6.5s .3s linear forwards}
+@keyframes f{to{opacity:1}}@keyframes l{to{width:100%}}
+</style></head><body>
+<div id="ls"><div class="p">LEONLINK PRESENTS</div><div class="t">ARCADELINE</div><div class="g">Insert coin. Lose control.</div><div class="bar"><div class="fill"></div></div></div>
+<!-- game goes here -->
+<script>setTimeout(()=>{const l=document.getElementById('ls');l.style.opacity=0;setTimeout(()=>l.remove(),500)},7000);</script>
+</body></html>

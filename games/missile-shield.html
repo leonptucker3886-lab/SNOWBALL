@@ -1,0 +1,66 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"><title>Missile Shield — Arcadeline</title>
+<style>
+html,body{margin:0;height:100%;background:#05060f;overflow:hidden;font-family:"Courier New",monospace;color:#fff;touch-action:none;-webkit-user-select:none;user-select:none}
+#s{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .8s;z-index:10;background:#05060f}
+.p{letter-spacing:.5em;font-size:2.2vmin;color:#9fdcff;opacity:0;animation:f 1s .3s forwards}
+h1{font-size:12vmin;margin:.3em 0;color:#fff;text-shadow:0 0 10px #7fd8ff,0 0 30px #ff3bd4;opacity:0;transform:scale(.3);animation:r 1.2s 1.5s cubic-bezier(.2,1.6,.4,1) forwards}
+.t{font-size:3vmin;color:#ff8bf0;opacity:0;animation:f 1s 3s forwards}
+.b{width:50vmin;height:2.4vmin;border:2px solid #7fd8ff;border-radius:2vmin;margin-top:5vmin;overflow:hidden;box-shadow:0 0 12px #7fd8ff}
+.b i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7fd8ff,#ff3bd4);animation:g 5.6s .6s linear forwards}
+.ball{position:absolute;bottom:8vmin;left:-10vmin;width:4vmin;height:4vmin;border-radius:50%;background:#eaf8ff;box-shadow:0 0 15px #fff;animation:roll 6.2s .3s ease-in forwards}
+@keyframes f{to{opacity:1}}@keyframes r{to{opacity:1;transform:scale(1)}}@keyframes g{to{width:100%}}
+@keyframes roll{to{left:110vw;width:14vmin;height:14vmin;transform:rotate(1080deg)}}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="s"><div class="p">LEONLINK PRESENTS</div><h1>ARCADELINE</h1><div class="t">Start small. Roll big.</div><div class="b"><i></i></div><div class="ball"></div></div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');let W,H,D;
+function rs(){D=devicePixelRatio||1;W=innerWidth;H=innerHeight;c.width=W*D;c.height=H*D;x.setTransform(D,0,0,D,0,0)}addEventListener('resize',rs);rs();
+let st='load',cities,bases,mis,ints,booms,score,wave,best=+localStorage.missileShieldBest||0,toSpawn,spawnT,cx,cy,t0=0,last=performance.now(),msg=0;
+const CC=['#7fd8ff','#ff3bd4','#3bff9d','#ffd23b','#ff8bf0','#9fdcff'];
+function gy(){return H-40}
+function reset(){cities=[];for(let i=0;i<6;i++)cities.push({f:(i<3?.16+i*.11:.62+(i-3)*.11),alive:1,c:CC[i]});bases=[{f:.05,a:10},{f:.5,a:10},{f:.95,a:10}];mis=[];ints=[];booms=[];score=0;wave=0;cx=W/2;cy=H/2;next()}
+function next(){wave++;toSpawn=6+wave*3;spawnT=1.5;msg=2;bases.forEach(b=>b.a=10)}
+function fire(tx,ty){if(st=='load')return;if(st=='ready'){st='play';return}if(st=='over'){if(performance.now()-t0>700){reset();st='play'}return}if(st!='play')return;
+ ty=Math.min(ty,gy()-30);let bb=null,bd=1e9;bases.forEach(b=>{const d=Math.abs(b.f*W-tx);if(b.a>0&&d<bd){bd=d;bb=b}});if(!bb)return;bb.a--;
+ const sx=bb.f*W,sy=gy()-12,d=Math.hypot(tx-sx,ty-sy);ints.push({sx,sy,x:sx,y:sy,tx,ty,t:0,dur:d/(Math.max(W,H)*1.1)})}
+c.addEventListener('pointerdown',e=>{e.preventDefault();cx=e.clientX;cy=e.clientY;fire(e.clientX,e.clientY)});
+addEventListener('pointermove',e=>{cx=e.clientX;cy=e.clientY});
+addEventListener('keydown',e=>{const k=e.key,s=Math.max(W,H)*.03;
+ if(k=='ArrowLeft'||k=='a')cx-=s;else if(k=='ArrowRight'||k=='d')cx+=s;else if(k=='ArrowUp'||k=='w')cy-=s;else if(k=='ArrowDown'||k=='s')cy+=s;
+ else if(k==' '||k=='Enter')fire(cx,cy);else if(k=='p'&&st=='play')st='pause';else if(k=='p'&&st=='pause')st='play';else return;
+ e.preventDefault();cx=Math.max(0,Math.min(W,cx));cy=Math.max(0,Math.min(gy()-30,cy))});
+function targets(){const t=[];cities.forEach(ci=>ci.alive&&t.push(ci.f*W));bases.forEach(b=>t.push(b.f*W));return t}
+function spawn(sx,sy){const t=targets();const tx=t[Math.random()*t.length|0]+(Math.random()-.5)*10;const sp=H*(.06+wave*.012)*(.8+Math.random()*.5);
+ mis.push({sx,sy,x:sx,y:sy,tx,ty:gy(),sp,split:wave>2&&Math.random()<.15})}
+function step(dt){if(msg>0)msg-=dt;
+ if(toSpawn>0){spawnT-=dt;if(spawnT<=0){spawn(Math.random()*W,-5);toSpawn--;spawnT=Math.max(.35,1.6-wave*.12)*(.5+Math.random())}}
+ ints=ints.filter(i=>{i.t+=dt;const k=Math.min(1,i.t/i.dur);i.x=i.sx+(i.tx-i.sx)*k;i.y=i.sy+(i.ty-i.sy)*k;if(k>=1){booms.push({x:i.tx,y:i.ty,r:0,t:0,c:'#7fd8ff',p:1});return 0}return 1});
+ booms.forEach(b=>{b.t+=dt;b.r=Math.sin(Math.min(1,b.t/1.4)*Math.PI)*Math.min(W,H)*.075});booms=booms.filter(b=>b.t<1.4);
+ mis=mis.filter(m=>{const dx=m.tx-m.sx,dy=m.ty-m.sy,L=Math.hypot(dx,dy);m.x+=dx/L*m.sp*dt;m.y+=dy/L*m.sp*dt;
+  for(const b of booms)if(b.p&&Math.hypot(m.x-b.x,m.y-b.y)<b.r){score+=25*wave;booms.push({x:m.x,y:m.y,r:0,t:.2,c:'#ffd23b',p:1});return 0}
+  if(m.split&&m.y>H*.35){m.split=0;for(let n=0;n<2;n++)spawn(m.x,m.y)}
+  if(m.y>=m.ty){booms.push({x:m.x,y:m.ty,r:0,t:0,c:'#ff3b5c',p:0});cities.forEach(ci=>{if(ci.alive&&Math.abs(ci.f*W-m.x)<W*.045)ci.alive=0});bases.forEach(b=>{if(Math.abs(b.f*W-m.x)<W*.04)b.a=0});
+   if(navigator.vibrate)navigator.vibrate(60);return 0}return 1});
+ if(!cities.some(ci=>ci.alive)){st='over';t0=performance.now();if(score>best){best=score;localStorage.missileShieldBest=best}}
+ else if(toSpawn<=0&&!mis.length&&!ints.length){cities.forEach(ci=>ci.alive&&(score+=100));bases.forEach(b=>score+=b.a*5);next()}}
+function draw(){x.shadowBlur=0;x.fillStyle='#05060f';x.fillRect(0,0,W,H);
+ x.fillStyle='#fff';for(let i=0;i<60;i++){x.globalAlpha=.3+.3*Math.sin(i*7+performance.now()/900);x.fillRect((i*137)%W,(i*71)%(H*.7),1.5,1.5)}x.globalAlpha=1;
+ const g=gy();x.fillStyle='#120a2a';x.fillRect(0,g,W,H-g);x.lineWidth=2;x.strokeStyle='#ff3bd4';x.shadowColor='#ff3bd4';x.shadowBlur=12;x.beginPath();x.moveTo(0,g);x.lineTo(W,g);x.stroke();
+ cities.forEach(ci=>{const X=ci.f*W,w=W*.06;if(ci.alive){x.fillStyle=ci.c;x.shadowColor=ci.c;[[0,.5],[.25,.9],[.5,.65],[.75,.8]].forEach(([o,h])=>x.fillRect(X-w/2+o*w,g-h*w*.7,w*.22,h*w*.7))}else{x.fillStyle='#3a2a44';x.fillRect(X-w/2,g-4,w,4)}});
+ bases.forEach(b=>{const X=b.f*W;x.fillStyle=b.a>0?'#3bff9d':'#444';x.shadowColor='#3bff9d';x.beginPath();x.moveTo(X-18,g);x.lineTo(X,g-16);x.lineTo(X+18,g);x.fill();x.fillStyle='#fff';x.font='12px Courier New';x.textAlign='center';x.fillText(b.a,X,g+18)});
+ mis.forEach(m=>{x.strokeStyle='rgba(255,59,92,.75)';x.shadowColor='#ff3b5c';x.beginPath();x.moveTo(m.sx,m.sy);x.lineTo(m.x,m.y);x.stroke();x.fillStyle='#fff';x.fillRect(m.x-2,m.y-2,4,4)});
+ ints.forEach(i=>{x.strokeStyle='rgba(127,216,255,.85)';x.shadowColor='#7fd8ff';x.beginPath();x.moveTo(i.sx,i.sy);x.lineTo(i.x,i.y);x.moveTo(i.tx-5,i.ty-5);x.lineTo(i.tx+5,i.ty+5);x.moveTo(i.tx+5,i.ty-5);x.lineTo(i.tx-5,i.ty+5);x.stroke()});
+ booms.forEach(b=>{x.fillStyle=b.c;x.shadowColor=b.c;x.globalAlpha=.75;x.beginPath();x.arc(b.x,b.y,Math.max(0,b.r),0,7);x.fill();x.globalAlpha=1});
+ x.shadowBlur=0;x.lineWidth=1;x.strokeStyle='#ffffffaa';x.beginPath();x.arc(cx,cy,9,0,7);x.moveTo(cx-14,cy);x.lineTo(cx+14,cy);x.moveTo(cx,cy-14);x.lineTo(cx,cy+14);x.stroke();
+ const m=Math.min(W,H),fs=Math.max(13,Math.min(18,W/26));x.fillStyle='#fff';x.font='bold '+fs+'px Courier New';x.textAlign='left';x.fillText('SCORE '+score,10,26);x.textAlign='right';x.fillText('WAVE '+wave+' BEST '+best,W-10,26);
+ x.textAlign='center';x.shadowColor='#ff3bd4';x.shadowBlur=14;const t=(s,f,y)=>{x.font=f+'px Courier New';x.fillText(s,W/2,y)};
+ if(st=='play'&&msg>0)t('WAVE '+wave,'bold '+m*.08,H*.4);
+ if(st=='ready'){t('MISSILE SHIELD','bold '+m*.085,H*.33);t('Tap where interceptors should burst',m*.038,H*.45);t('Keys: arrows/WASD aim, Space fire, P pause',m*.032,H*.51);t('Tap or press Space to start',m*.04,H*.61)}
+ if(st=='pause')t('PAUSED','bold '+m*.08,H*.4);
+ if(st=='over'){t('CITIES LOST','bold '+m*.085,H*.35);t('Score '+score+'  Wave '+wave+'  Best '+best,m*.042,H*.46);t('Tap or press Space to play again',m*.04,H*.55)}}
+reset();
+function loop(n){const dt=Math.min(.05,(n-last)/1000);last=n;if(st=='play')step(dt);draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);
+setTimeout(()=>{const s=document.getElementById('s');s.style.opacity=0;setTimeout(()=>{s.remove();st='ready'},800)},7000);
+</script></body></html>

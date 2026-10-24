@@ -1,0 +1,68 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Comet Catcher — Arcadeline</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%;background:#05010f;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden;touch-action:none;user-select:none}
+#load{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#1a0b3d,#05010f);z-index:10;transition:opacity .6s}
+#load .pre{letter-spacing:.4em;font-size:clamp(12px,3.5vw,20px);color:#9ef;opacity:0;animation:fi 1s .3s forwards}
+#load h1{font-size:clamp(36px,11vw,90px);color:#ff3df0;text-shadow:0 0 12px #ff3df0,0 0 30px #7a2bff;margin:.3em 0 .1em;opacity:0;animation:pop .6s 1.6s forwards}
+#load .tag{font-size:clamp(14px,4vw,24px);color:#7ff;opacity:0;animation:fi .8s 2.6s forwards}
+#bar{width:min(70vw,420px);height:10px;border:1px solid #7ff;border-radius:6px;margin-top:2em;overflow:hidden}#bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7ff,#ff3df0);animation:fill 6.2s .3s linear forwards}
+#ball{position:absolute;bottom:18%;left:-60px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 0 18px #9ef;animation:roll 6.5s .3s linear forwards}
+@keyframes fi{to{opacity:1}}@keyframes pop{0%{opacity:0;transform:scale(.4)}80%{transform:scale(1.1)}to{opacity:1;transform:scale(1)}}@keyframes fill{to{width:100%}}
+@keyframes roll{to{left:calc(100% + 60px);width:70px;height:70px;transform:rotate(720deg)}}
+</style></head><body>
+<div id="load"><div class="pre">LEONLINK PRESENTS</div><h1>ARCADELINE</h1><div class="tag">Start small. Roll big.</div><div id="bar"><i></i></div><div id="ball"></div></div>
+<style>canvas{display:block;width:100vw;height:100vh}</style>
+<canvas id="c"></canvas>
+<div id="hud" style="position:fixed;top:8px;left:0;right:0;text-align:center;font:bold 16px system-ui;color:#7ff;pointer-events:none;z-index:2"></div>
+<script>
+let started=false;
+setTimeout(()=>{const l=document.getElementById('load');l.style.opacity=0;setTimeout(()=>l.remove(),600);started=true},7000);
+const c=document.getElementById('c'),x=c.getContext('2d');let W,H;
+function rs(){W=c.width=innerWidth;H=c.height=innerHeight}rs();addEventListener('resize',rs);
+let best=+localStorage.getItem('cometCatcherBest')||0,state='ready',paused=false;
+let bx,score,lives,items,t,spawn,keys={},dragX=null,fx=[];
+function reset(){bx=W/2;score=0;lives=3;items=[];t=0;spawn=0;fx=[]}
+reset();
+function start(){if(!started)return;if(state!=='play'){if(state==='over')reset();state='play';paused=false}}
+c.addEventListener('pointerdown',e=>{e.preventDefault();dragX=e.clientX;start()});
+c.addEventListener('pointermove',e=>{if(dragX!==null||e.pointerType==='mouse')dragX=e.clientX});
+addEventListener('pointerup',e=>{if(e.pointerType!=='mouse')dragX=null});
+addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyP'&&state==='play'){paused=!paused;return}
+ if(['Space','Enter'].includes(e.code)){e.preventDefault();start()}
+ if(['ArrowLeft','ArrowRight','KeyA','KeyD'].includes(e.code)){dragX=null;e.preventDefault()}});
+addEventListener('keyup',e=>keys[e.code]=false);
+function bw(){return Math.max(70,Math.min(140,W*0.18))}
+function step(){if(state!=='play'||paused)return;t++;
+ const sp=Math.max(6,W*0.012);
+ if(keys.ArrowLeft||keys.KeyA)bx-=sp;if(keys.ArrowRight||keys.KeyD)bx+=sp;
+ if(dragX!==null)bx+=(dragX-bx)*0.35;
+ bx=Math.max(bw()/2,Math.min(W-bw()/2,bx));
+ const lvl=1+t/1800;spawn-=1;
+ if(spawn<=0){spawn=Math.max(14,50-t/90);const r=Math.random();
+  items.push({x:20+Math.random()*(W-40),y:-20,v:(2+Math.random()*1.5)*lvl*(H/700),k:r<0.18?'bomb':r<0.28?'star':'comet'})}
+ const by=H-60;
+ items.forEach(o=>{o.y+=o.v;
+  if(o.y>by-10&&o.y<by+20&&Math.abs(o.x-bx)<bw()/2+8){o.dead=true;
+   if(o.k==='bomb'){lives--;burst(o.x,o.y,'#f44')}else{score+=o.k==='star'?50:10;burst(o.x,o.y,o.k==='star'?'#ffd23d':'#7ff')}}
+  else if(o.y>H+20){o.dead=true;if(o.k==='comet'){lives--;burst(o.x,H-5,'#f4a')}}});
+ items=items.filter(o=>!o.dead);
+ fx.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.l--});fx=fx.filter(p=>p.l>0);
+ if(lives<=0){state='over';if(score>best){best=score;localStorage.setItem('cometCatcherBest',best)}}}
+function burst(px,py,col){for(let i=0;i<14;i++)fx.push({x:px,y:py,vx:(Math.random()-.5)*7,vy:(Math.random()-.5)*7,l:25,c:col})}
+function draw(){x.fillStyle='#05010f';x.fillRect(0,0,W,H);x.shadowBlur=14;
+ items.forEach(o=>{if(o.k==='comet'){x.strokeStyle='rgba(120,255,255,.4)';x.lineWidth=4;x.beginPath();x.moveTo(o.x,o.y);x.lineTo(o.x,o.y-30);x.stroke();
+   x.fillStyle='#7ff';x.shadowColor='#7ff';x.beginPath();x.arc(o.x,o.y,10,0,7);x.fill()}
+  else if(o.k==='star'){x.fillStyle='#ffd23d';x.shadowColor='#ffd23d';x.beginPath();for(let i=0;i<10;i++){const a=i*Math.PI/5-Math.PI/2,r=i%2?6:14;x.lineTo(o.x+Math.cos(a)*r,o.y+Math.sin(a)*r)}x.fill()}
+  else{x.fillStyle='#f33';x.shadowColor='#f33';x.beginPath();x.arc(o.x,o.y,12,0,7);x.fill();x.fillStyle='#fff';x.fillRect(o.x-2,o.y-18,4,7)}});
+ fx.forEach(p=>{x.fillStyle=p.c;x.globalAlpha=p.l/25;x.fillRect(p.x,p.y,4,4)});x.globalAlpha=1;
+ const by=H-60,w=bw();x.strokeStyle='#ff3df0';x.shadowColor='#ff3df0';x.lineWidth=5;
+ x.beginPath();x.moveTo(bx-w/2,by-10);x.lineTo(bx-w/2+12,by+20);x.lineTo(bx+w/2-12,by+20);x.lineTo(bx+w/2,by-10);x.stroke();x.shadowBlur=0;
+ document.getElementById('hud').textContent='COMET CATCHER  Score '+score+'  Lives '+'\u2665'.repeat(Math.max(0,lives))+'  Best '+best+(paused?'  PAUSED':'');
+ if(state!=='play'&&started){x.fillStyle='#fff';x.textAlign='center';x.font='bold 26px system-ui';
+  x.fillText(state==='over'?'GAME OVER! Score '+score:'COMET CATCHER',W/2,H/2-40);x.font='16px system-ui';
+  x.fillText('Catch comets (10) and stars (50). Avoid red bombs.',W/2,H/2-5);
+  x.fillText("Don't let comets hit the ground.",W/2,H/2+18);
+  x.fillText('Drag / Arrows / A D to move \u00b7 P to pause',W/2,H/2+41);
+  x.fillText('Tap or Space to start',W/2,H/2+64)}}
+function loop(){step();draw();requestAnimationFrame(loop)}loop();
+</script></body></html>

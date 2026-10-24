@@ -1,0 +1,71 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Sky Joust — Arcadeline</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%;background:#05010f;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden;touch-action:none;user-select:none}
+#load{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#1a0b3d,#05010f);z-index:10;transition:opacity .6s}
+#load .pre{letter-spacing:.4em;font-size:clamp(12px,3.5vw,20px);color:#9ef;opacity:0;animation:fi 1s .3s forwards}
+#load h1{font-size:clamp(36px,11vw,90px);color:#ff3df0;text-shadow:0 0 12px #ff3df0,0 0 30px #7a2bff;margin:.3em 0 .1em;opacity:0;animation:pop .6s 1.6s forwards}
+#load .tag{font-size:clamp(14px,4vw,24px);color:#7ff;opacity:0;animation:fi .8s 2.6s forwards}
+#bar{width:min(70vw,420px);height:10px;border:1px solid #7ff;border-radius:6px;margin-top:2em;overflow:hidden}#bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7ff,#ff3df0);animation:fill 6.2s .3s linear forwards}
+#ball{position:absolute;bottom:18%;left:-60px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 0 18px #9ef;animation:roll 6.5s .3s linear forwards}
+@keyframes fi{to{opacity:1}}@keyframes pop{0%{opacity:0;transform:scale(.4)}80%{transform:scale(1.1)}to{opacity:1;transform:scale(1)}}@keyframes fill{to{width:100%}}
+@keyframes roll{to{left:calc(100% + 60px);width:70px;height:70px;transform:rotate(720deg)}}
+</style></head><body>
+<div id="load"><div class="pre">LEONLINK PRESENTS</div><h1>ARCADELINE</h1><div class="tag">Start small. Roll big.</div><div id="bar"><i></i></div><div id="ball"></div></div>
+<style>canvas{display:block}</style>
+<canvas id="c"></canvas>
+<div id="hud" style="position:fixed;top:8px;left:0;right:0;text-align:center;font:bold 16px system-ui;color:#7ff;text-shadow:0 0 6px #7ff;pointer-events:none;z-index:2"></div>
+<div id="ctl" style="position:fixed;bottom:0;left:0;right:0;height:22%;display:flex;z-index:3">
+<div id="bl" style="flex:1;border-top:1px solid #7ff4;display:flex;align-items:center;justify-content:center;color:#7ff8;font:28px system-ui">◀</div>
+<div id="bf" style="flex:1.4;border-top:1px solid #f3f4;display:flex;align-items:center;justify-content:center;color:#f3f9;font:bold 20px system-ui">FLAP</div>
+<div id="br" style="flex:1;border-top:1px solid #7ff4;display:flex;align-items:center;justify-content:center;color:#7ff8;font:28px system-ui">▶</div></div>
+<script>
+setTimeout(()=>{const l=document.getElementById('load');l.style.opacity=0;setTimeout(()=>l.remove(),600);started=true},7000);
+const c=document.getElementById('c'),x=c.getContext('2d'),hud=document.getElementById('hud');
+let W,H,started=false,paused=false;function rs(){W=c.width=innerWidth;H=c.height=innerHeight*0.78}rs();addEventListener('resize',rs);
+const k={};let flapQ=0;
+addEventListener('keydown',e=>{if(e.repeat&&(e.code=='Space'||e.code=='ArrowUp'||e.code=='KeyW'))return;k[e.code]=1;if(['Space','ArrowUp','KeyW'].includes(e.code)){flapQ++;e.preventDefault()}if(e.code=='KeyP')paused=!paused;if(over&&e.code=='Enter')reset()});
+addEventListener('keyup',e=>k[e.code]=0);
+const tb={l:0,r:0};function bind(id,f){const el=document.getElementById(id);el.addEventListener('touchstart',e=>{e.preventDefault();f(1)},{passive:false});el.addEventListener('touchend',e=>{e.preventDefault();f(0)},{passive:false});el.addEventListener('mousedown',()=>f(1));el.addEventListener('mouseup',()=>f(0))}
+bind('bl',v=>tb.l=v);bind('br',v=>tb.r=v);bind('bf',v=>{if(v){flapQ++;if(over)reset()}});
+c.addEventListener('pointerdown',()=>{if(over)reset();else flapQ++});
+let best=+localStorage.getItem('skyjoust_best')||0,p,en,eggs,parts,score,lives,wave,over,plats;
+function mkPlats(){plats=[{x:0,y:H-20,w:W},{x:W*.05,y:H*.3,w:W*.25},{x:W*.7,y:H*.3,w:W*.25},{x:W*.35,y:H*.55,w:W*.3},{x:W*.02,y:H*.72,w:W*.2},{x:W*.78,y:H*.72,w:W*.2}]}
+function reset(){mkPlats();p={x:W/2,y:H-60,vx:0,vy:0,f:1,inv:120};en=[];eggs=[];parts=[];score=0;lives=3;wave=0;over=false;nextWave()}
+function nextWave(){wave++;const n=2+wave;for(let i=0;i<n;i++)spawn(Math.min(1+wave*.12,2.2))}
+function spawn(s){en.push({x:Math.random()*W,y:-20-Math.random()*100,vx:(Math.random()<.5?-1:1)*s,vy:0,s,t:Math.random()*60})}
+function boom(X,Y,col){for(let i=0;i<14;i++)parts.push({x:X,y:Y,vx:(Math.random()-.5)*6,vy:(Math.random()-.5)*6,l:30,col})}
+function phys(o){o.vy+=.18;o.vy=Math.min(o.vy,5);o.x+=o.vx;o.y+=o.vy;if(o.x<-15)o.x=W+15;if(o.x>W+15)o.x=-15;if(o.y<14){o.y=14;o.vy=Math.abs(o.vy)*.3}
+ o.g=false;for(const q of plats){if(o.vy>=0&&o.x>q.x&&o.x<q.x+q.w&&o.y+14>=q.y&&o.y+14-o.vy<=q.y+2){o.y=q.y-14;o.vy=0;o.g=true}}}
+reset();
+function step(){if(!started||paused||over)return;
+ const L=k.ArrowLeft||k.KeyA||tb.l,R=k.ArrowRight||k.KeyD||tb.r;
+ if(L){p.vx-=.25;p.f=-1}if(R){p.vx+=.25;p.f=1}p.vx*=p.g?.88:.985;p.vx=Math.max(-4.5,Math.min(4.5,p.vx));
+ if(flapQ>0){p.vy-=4.2;flapQ=0}phys(p);if(p.inv>0)p.inv--;
+ for(const e of en){e.t++;if(e.t%40==0||e.y>H*.8&&Math.random()<.1)e.vy-=3.5+Math.random()*1.5;if(Math.random()<.004)e.vx=-e.vx;
+  if(Math.random()<.01){e.vx+=(p.x>e.x?.3:-.3)*e.s;e.vx=Math.max(-e.s*2,Math.min(e.s*2,e.vx))}phys(e);
+  if(Math.abs(e.x-p.x)<26&&Math.abs(e.y-p.y)<24){if(p.y<e.y-4){e.dead=1;score+=50*wave;boom(e.x,e.y,'#f3f');eggs.push({x:e.x,y:e.y,vx:e.vx*.5,vy:-2,t:360,s:e.s});p.vy=-3}
+   else if(e.y<p.y-4){if(p.inv<=0)die()}else{p.vx=-p.vx;e.vx=-e.vx;p.vx+=p.x<e.x?-2:2}}}
+ en=en.filter(e=>!e.dead);
+ for(const g of eggs){phys(g);g.vx*=.97;g.t--;if(Math.hypot(g.x-p.x,g.y-p.y)<24){g.got=1;score+=100;boom(g.x,g.y,'#ff0')}if(g.t<=0&&!g.got){g.got=1;spawn(g.s+.2);en[en.length-1].x=g.x;en[en.length-1].y=g.y-10}}
+ eggs=eggs.filter(g=>!g.got);
+ if(p.y>H-25&&!p.g)die();
+ if(!en.length&&!eggs.length){score+=200*wave;nextWave()}
+ for(const q of parts){q.x+=q.vx;q.y+=q.vy;q.l--}parts=parts.filter(q=>q.l>0);
+ if(score>best){best=score;localStorage.setItem('skyjoust_best',best)}}
+function die(){boom(p.x,p.y,'#7ff');lives--;if(lives<=0){over=true;return}p.x=W/2;p.y=H-60;p.vx=p.vy=0;p.inv=150}
+function rider(o,col,f){x.save();x.translate(o.x,o.y);x.scale(f<0?-1:1,1);x.shadowBlur=12;x.shadowColor=col;x.strokeStyle=col;x.lineWidth=2.5;
+ x.beginPath();x.ellipse(0,4,14,8,0,0,7);x.stroke();const w=Math.sin(Date.now()/60+o.x)*8;x.beginPath();x.moveTo(-4,2);x.lineTo(-14,-6+w);x.lineTo(2,0);x.stroke();
+ x.beginPath();x.moveTo(12,2);x.lineTo(18,-4);x.stroke();x.beginPath();x.arc(0,-10,5,0,7);x.stroke();x.beginPath();x.moveTo(4,-10);x.lineTo(20,-14);x.stroke();x.restore()}
+function draw(){x.fillStyle='#05010f';x.fillRect(0,0,W,H);
+ x.fillStyle='#ff400033';x.fillRect(0,H-6,W,6);
+ x.shadowBlur=10;x.shadowColor='#7ff';x.fillStyle='#7ff';for(const q of plats)x.fillRect(q.x,q.y,q.w,4);x.shadowBlur=0;
+ for(const g of eggs){x.fillStyle=g.t<90&&g.t%10<5?'#fff':'#ff0';x.beginPath();x.ellipse(g.x,g.y+6,6,8,0,0,7);x.fill()}
+ for(const e of en)rider(e,'#f3f',e.vx);
+ if(!(p.inv>0&&p.inv%10<5))rider(p,'#7ff',p.f);
+ for(const q of parts){x.fillStyle=q.col;x.globalAlpha=q.l/30;x.fillRect(q.x,q.y,3,3)}x.globalAlpha=1;
+ hud.textContent=`SCORE ${score}   WAVE ${wave}   LIVES ${'♥'.repeat(Math.max(lives,0))}   BEST ${best}`;
+ x.textAlign='center';x.fillStyle='#fff';
+ if(over){x.font='bold 40px system-ui';x.fillText('GAME OVER',W/2,H/2-20);x.font='18px system-ui';x.fillText('Tap or press Enter to fly again',W/2,H/2+20)}
+ else if(paused){x.font='bold 36px system-ui';x.fillText('PAUSED',W/2,H/2)}}
+(function loop(){step();draw();requestAnimationFrame(loop)})();
+</script></body></html>

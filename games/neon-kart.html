@@ -1,0 +1,79 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Neon Kart | Arcadeline</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#05060f;overflow:hidden;font-family:"Courier New",monospace;color:#fff;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+#s{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .8s;z-index:10;background:#05060f}
+.p{letter-spacing:.5em;font-size:max(10px,2.2vmin);color:#9fdcff;opacity:0;animation:f 1s .3s forwards}
+#s h1{font-size:12vmin;margin:.3em 0;text-shadow:0 0 10px #7fd8ff,0 0 30px #ff3bd4;opacity:0;transform:scale(.3);animation:r 1.2s 1.5s cubic-bezier(.2,1.6,.4,1) forwards}
+.t{font-size:max(13px,3vmin);color:#ff8bf0;opacity:0;animation:f 1s 3s forwards}
+.b{width:50vmin;height:2.4vmin;border:2px solid #7fd8ff;border-radius:2vmin;margin-top:5vmin;overflow:hidden;box-shadow:0 0 12px #7fd8ff}
+.b i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7fd8ff,#ff3bd4);animation:g 6.2s .3s linear forwards}
+.ball{position:absolute;bottom:8vmin;left:-10vmin;width:4vmin;height:4vmin;border-radius:50%;background:#eaf8ff;box-shadow:0 0 15px #fff;animation:roll 6.4s .3s ease-in forwards}
+@keyframes f{to{opacity:1}}@keyframes r{to{opacity:1;transform:scale(1)}}@keyframes g{to{width:100%}}
+@keyframes roll{to{left:110vw;width:14vmin;height:14vmin;transform:rotate(1080deg)}}
+#ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#05060fdd;text-align:center;padding:4vmin;z-index:5}
+#ov h2{font-size:max(28px,9vmin);margin:0;text-shadow:0 0 10px #7fd8ff,0 0 30px #ff3bd4}
+#ov p{font-size:max(14px,3vmin);color:#ccd;max-width:90vw}
+button{font:inherit;font-size:max(18px,4vmin);padding:2vmin 6vmin;border:2px solid #ff3bd4;border-radius:3vmin;background:#1a0a2a;color:#fff;box-shadow:0 0 15px #ff3bd4}
+#hud{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:2vmin 4vmin;font-size:max(14px,3.2vmin);color:#9fdcff;text-shadow:0 0 8px #7fd8ff;z-index:2}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#bar{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:flex-end;padding:2vmin 3vmin;z-index:3;pointer-events:none}#bar button{pointer-events:auto;font-size:max(26px,7vmin);width:26vw;max-width:160px;height:13vh;max-height:110px;padding:0;touch-action:none}#bar #bb{width:20vw;font-size:max(14px,3vmin);height:9vh}#bar button.dn{background:#ff3bd4}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="s"><div class="p">LEONLINK PRESENTS</div><h1>ARCADELINE</h1><div class="t">Start small. Roll big.</div><div class="b"><i></i></div><div class="ball"></div></div>
+<div id="hud"><span id="bs">BEST 0</span><span id="info"></span><span id="sc">0</span></div>
+<div id="bar"><button id="bl">&#9664;</button><button id="bb">BRAKE</button><button id="br">&#9654;</button></div>
+<div id="ov"><h2 id="ttl">NEON KART</h2><p id="msg">Race 3 CPU karts over 3 laps. Your kart (white outline) speeds up by itself, so just steer. Stay on the glowing track, because the grass slows you down, and drive over the yellow arrows for a boost. Win a race to move on to the next track.<br>Touch: hold &#9664; / &#9654; to steer, BRAKE for tight corners. Keys: Left/Right or A/D steer, Down/S brake, P pause.</p><button id="go">PLAY</button></div>
+<script>
+const $=i=>document.getElementById(i),cv=$('c'),x=cv.getContext('2d');
+const TRACKS=[
+[[2,2],[8,2],[9,4],[8,6],[4,7],[4,9],[8,10],[8,14],[2,14],[1,12],[3,10],[1,8],[1,4]],
+[[5,1.5],[9,2],[9,6],[6,6.5],[6,8],[9,9],[9,14],[6,14.5],[5,11],[4,14.5],[1,14],[1,9],[4,8],[4,6.5],[1,6],[1,2]],
+[[2,1.5],[8.5,1.5],[8.5,5.5],[4,5.5],[4,8],[8.5,8.5],[8.5,14.5],[5,14.5],[5,11.5],[1.5,11.5],[1.5,6]]];
+const TW=1.15,COLS=['#7fd8ff','#ff3bd4','#ffb02e','#7dff8a'];
+let W,H,S,ox,oy,run=false,paused=false,best=+(localStorage.nkBest||0),score=0,tr=0,P=null,karts=[],keys={},hold={l:0,r:0,b:0},cd=0,fin=[],tm=0,boosts=[];
+function rs(){W=cv.width=innerWidth*devicePixelRatio;H=cv.height=innerHeight*devicePixelRatio;const top=H*.07,bot=H*.16;S=Math.min(W/10.6,(H-top-bot)/16.6);ox=(W-S*10)/2;oy=top+(H-top-bot-S*16)/2}addEventListener('resize',rs);rs();
+const pt=()=>TRACKS[tr];
+function near(k){const p=pt(),n=p.length;let bd=1e9,bi=0,bt=0;for(let i=0;i<n;i++){const a=p[i],b=p[(i+1)%n],dx=b[0]-a[0],dy=b[1]-a[1],L=dx*dx+dy*dy;let t=((k.x-a[0])*dx+(k.y-a[1])*dy)/L;t=Math.max(0,Math.min(1,t));const ex=a[0]+dx*t-k.x,ey=a[1]+dy*t-k.y,d=ex*ex+ey*ey;if(d<bd){bd=d;bi=i;bt=t}}return{d:Math.sqrt(bd),i:bi,t:bt}}
+function setup(){const p=pt(),a=p[0],b=p[1],ang=Math.atan2(b[1]-a[1],b[0]-a[0]),nx=-Math.sin(ang),ny=Math.cos(ang);karts=[];
+for(let j=0;j<4;j++){const fw=1.4-Math.floor(j/2)*.7,side=(j%2?.28:-.28);karts.push({x:a[0]+Math.cos(ang)*fw+nx*side,y:a[1]+Math.sin(ang)*fw+ny*side,a:ang,v:0,col:COLS[j],cpu:j>0,lap:0,seg:0,prog:0,boost:0,done:false,skill:.84+j*.035+tr*.03,wob:Math.random()*6})}
+P=karts[3];P.cpu=false;karts[0].cpu=true;P.col=COLS[0];karts[0].col='#c08bff';
+boosts=[];for(let i=1;i<p.length;i+=3){const q=p[i],r=p[(i+1)%p.length];boosts.push({x:q[0]+(r[0]-q[0])*.45,y:q[1]+(r[1]-q[1])*.45,a:Math.atan2(r[1]-q[1],r[0]-q[0])})}
+fin=[];tm=0;cd=3}
+function upd(dt){if(cd>0){cd-=dt;hud();return}tm+=dt;const p=pt(),n=p.length;
+for(const k of karts){let steer=0,brake=0;
+if(k.cpu){const c=p[(k.seg+1)%n],tg=p[(k.seg+2)%n],ta=Math.atan2((tg[1]+c[1])/2-k.y+Math.sin(tm+k.wob)*.2,(tg[0]+c[0])/2-k.x);let da=ta-k.a;da=Math.atan2(Math.sin(da),Math.cos(da));steer=Math.max(-1,Math.min(1,da*3));brake=Math.abs(da)>1?1:0}
+else if(!k.done){steer=((keys.r||hold.r)?1:0)-((keys.l||hold.l)?1:0);brake=(keys.b||hold.b)?1:0}else brake=1;
+const nr=near(k),off=nr.d>TW/2;let top=(k.cpu?5.2*k.skill:5.4)*(off?.45:1)*(k.boost>0?1.6:1);if(brake)top*=.45;
+k.v+=(top-k.v)*Math.min(1,dt*(k.v<top?1.3:3));k.a+=steer*dt*2.7;k.x+=Math.cos(k.a)*k.v*dt;k.y+=Math.sin(k.a)*k.v*dt;k.x=Math.max(.2,Math.min(9.8,k.x));k.y=Math.max(.2,Math.min(15.8,k.y));k.boost-=dt;
+for(const b of boosts)if(Math.hypot(b.x-k.x,b.y-k.y)<.45)k.boost=1.1;
+const nn=near(k);if(k.seg==n-1&&nn.i==0){k.lap++;if(k.lap>=3&&!k.done){k.done=true;fin.push(k);if(k==P)end()}}else if(k.seg==0&&nn.i==n-1)k.lap--;k.seg=nn.i;k.prog=k.lap*n+nn.i+nn.t}
+for(let i=0;i<4;i++)for(let j=i+1;j<4;j++){const a=karts[i],b=karts[j],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);if(d<.4&&d>0){const m=(.4-d)/2/d;a.x-=dx*m;a.y-=dy*m;b.x+=dx*m;b.y+=dy*m}}
+hud()}
+function place(){if(P.done)return fin.indexOf(P)+1;return 1+karts.filter(k=>k!=P&&(k.done||k.prog>P.prog)).length}
+function hud(){$('sc').textContent=score;$('bs').textContent='BEST '+best;$('info').textContent=P?('T'+(tr+1)+' LAP '+Math.min(3,P.lap+1)+'/3 P'+place()):''}
+function end(){const pl=fin.indexOf(P)+1,pts=[0,1000,600,300,100][pl]+Math.max(0,Math.round((90-tm)*10));score+=pts;
+setTimeout(()=>{run=false;if(pl==1){tr=(tr+1)%3;$('ttl').textContent='YOU WON!';$('msg').innerHTML='1st place in '+tm.toFixed(1)+'s<br>+'+pts+' points. Total: '+score+'<br>Next up: track '+(tr+1);$('go').textContent='NEXT RACE';$('go').onclick=()=>{setup();run=true;paused=false;$('ov').style.display='none'}}
+else{if(score>best){best=score;localStorage.nkBest=best}$('ttl').textContent='FINISHED '+['','1ST','2ND','3RD','4TH'][pl];$('msg').innerHTML='Time '+tm.toFixed(1)+'s<br>Final score: '+score+'<br>Best: '+best+'<br>Win a race to keep going.';$('go').textContent='PLAY AGAIN';$('go').onclick=start}
+$('ov').style.display='flex';hud()},1200)}
+function start(){score=0;tr=0;setup();run=true;paused=false;$('ov').style.display='none'}
+$('go').onclick=start;
+const wx=v=>ox+v*S,wy=v=>oy+v*S;
+function draw(){x.fillStyle='#05060f';x.fillRect(0,0,W,H);x.strokeStyle='#0d1830';x.lineWidth=1;for(let i=0;i<=10;i++){x.beginPath();x.moveTo(wx(i),wy(0));x.lineTo(wx(i),wy(16));x.stroke()}for(let i=0;i<=16;i++){x.beginPath();x.moveTo(wx(0),wy(i));x.lineTo(wx(10),wy(i));x.stroke()}
+const p=pt();x.lineJoin='round';x.lineCap='round';const path=()=>{x.beginPath();p.forEach((q,i)=>i?x.lineTo(wx(q[0]),wy(q[1])):x.moveTo(wx(q[0]),wy(q[1])));x.closePath()};
+path();x.strokeStyle='#ff3bd4';x.shadowColor='#ff3bd4';x.shadowBlur=20;x.lineWidth=TW*S+6;x.stroke();x.shadowBlur=0;path();x.strokeStyle='#141a33';x.lineWidth=TW*S;x.stroke();
+path();x.setLineDash([S*.25,S*.25]);x.strokeStyle='#2a3566';x.lineWidth=2;x.stroke();x.setLineDash([]);
+const a=p[0],b=p[1],ang=Math.atan2(b[1]-a[1],b[0]-a[0]);x.save();x.translate(wx(a[0]),wy(a[1]));x.rotate(ang);for(let i=0;i<6;i++){x.fillStyle=i%2?'#fff':'#222';x.fillRect(-S*.08,-TW*S/2+i*TW*S/6,S*.16,TW*S/6)}x.restore();
+for(const bo of boosts){x.save();x.translate(wx(bo.x),wy(bo.y));x.rotate(bo.a);x.fillStyle='#ffe23b';x.shadowColor='#ffe23b';x.shadowBlur=12;for(const o of[-.15,.12]){x.beginPath();x.moveTo(S*(o+.15),0);x.lineTo(S*(o-.08),-S*.2);x.lineTo(S*(o-.08),S*.2);x.fill()}x.restore()}
+for(const k of karts){x.save();x.translate(wx(k.x),wy(k.y));x.rotate(k.a);x.shadowColor=k.col;x.shadowBlur=k.boost>0?25:12;x.fillStyle=k.col;x.fillRect(-S*.22,-S*.13,S*.44,S*.26);x.fillStyle='#05060f';x.fillRect(-S*.05,-S*.08,S*.14,S*.16);if(k==P){x.strokeStyle='#fff';x.lineWidth=2;x.strokeRect(-S*.22,-S*.13,S*.44,S*.26)}x.restore()}
+if(run&&cd>0){x.fillStyle='#fff';x.font='bold '+S*2+'px Courier New';x.textAlign='center';x.shadowColor='#ff3bd4';x.shadowBlur=20;x.fillText(Math.ceil(cd),W/2,H/2);x.shadowBlur=0}
+if(paused){x.fillStyle='#000a';x.fillRect(0,0,W,H);x.fillStyle='#fff';x.font='bold '+S+'px Courier New';x.textAlign='center';x.fillText('PAUSED',W/2,H/2)}}
+const km={ArrowLeft:'l',KeyA:'l',ArrowRight:'r',KeyD:'r',ArrowDown:'b',KeyS:'b'};
+addEventListener('keydown',e=>{if(km[e.code]){keys[km[e.code]]=1;e.preventDefault()}if(e.code=='KeyP'&&run)paused=!paused;if((e.code=='Space'||e.code=='Enter')&&$('ov').style.display!='none'&&!$('s').isConnected)$('go').click()});
+addEventListener('keyup',e=>{if(km[e.code])keys[km[e.code]]=0});
+[['bl','l'],['br','r'],['bb','b']].forEach(([id,k])=>{const el=$(id),on=e=>{e.preventDefault();hold[k]=1;el.classList.add('dn');if(paused)paused=false},off=e=>{hold[k]=0;el.classList.remove('dn')};el.addEventListener('pointerdown',on);el.addEventListener('pointerup',off);el.addEventListener('pointercancel',off);el.addEventListener('pointerleave',off);el.addEventListener('contextmenu',e=>e.preventDefault())});
+cv.addEventListener('pointerdown',()=>{if(paused)paused=false});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&run)paused=true});
+let lt=performance.now();function loop(n){const dt=Math.min(.05,(n-lt)/1000);lt=n;if(run&&!paused)upd(dt);draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);hud();
+setTimeout(()=>{$('s').style.opacity=0;setTimeout(()=>$('s').remove(),800)},6200);
+</script></body></html>

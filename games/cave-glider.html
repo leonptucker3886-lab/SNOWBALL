@@ -1,0 +1,63 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Cave Glider — Arcadeline</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%;background:#05010f;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden;touch-action:none;user-select:none}
+#load{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#1a0b3d,#05010f);z-index:10;transition:opacity .6s}
+#load .pre{letter-spacing:.4em;font-size:clamp(12px,3.5vw,20px);color:#9ef;opacity:0;animation:fi 1s .3s forwards}
+#load h1{font-size:clamp(36px,11vw,90px);color:#ff3df0;text-shadow:0 0 12px #ff3df0,0 0 30px #7a2bff;margin:.3em 0 .1em;opacity:0;animation:pop .6s 1.6s forwards}
+#load .tag{font-size:clamp(14px,4vw,24px);color:#7ff;opacity:0;animation:fi .8s 2.6s forwards}
+#bar{width:min(70vw,420px);height:10px;border:1px solid #7ff;border-radius:6px;margin-top:2em;overflow:hidden}#bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7ff,#ff3df0);animation:fill 6.2s .3s linear forwards}
+#ball{position:absolute;bottom:18%;left:-60px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 0 18px #9ef;animation:roll 6.5s .3s linear forwards}
+@keyframes fi{to{opacity:1}}@keyframes pop{0%{opacity:0;transform:scale(.4)}80%{transform:scale(1.1)}to{opacity:1;transform:scale(1)}}@keyframes fill{to{width:100%}}
+@keyframes roll{to{left:calc(100% + 60px);width:70px;height:70px;transform:rotate(720deg)}}
+</style></head><body>
+<div id="load"><div class="pre">LEONLINK PRESENTS</div><h1>ARCADELINE</h1><div class="tag">Start small. Roll big.</div><div id="bar"><i></i></div><div id="ball"></div></div>
+<style>canvas{display:block;width:100vw;height:100vh}</style>
+<canvas id="c"></canvas>
+<div id="hud" style="position:fixed;top:8px;left:0;right:0;text-align:center;font:bold 16px system-ui;color:#7ff;pointer-events:none;z-index:2"></div>
+<script>
+let started=false;
+setTimeout(()=>{const l=document.getElementById('load');l.style.opacity=0;setTimeout(()=>l.remove(),600);started=true},7000);
+const c=document.getElementById('c'),x=c.getContext('2d');let W,H;
+function rs(){W=c.width=innerWidth;H=c.height=innerHeight}rs();addEventListener('resize',rs);
+let best=+localStorage.getItem('caveGliderBest')||0,state='ready',paused=false,hold=false;
+let py,vy,dist,speed,segs,gap,parts,lives;
+const SEG=20;
+function reset(){py=H/2;vy=0;dist=0;speed=3;gap=H*0.6;segs=[];parts=[];let mid=H/2;
+ for(let i=0;i<=W/SEG+2;i++)segs.push({m:mid,g:gap});}
+function newSeg(){const l=segs[segs.length-1];let m=l.m+(Math.random()-.5)*40;const g=Math.max(H*0.22,gap);
+ m=Math.max(g/2+10,Math.min(H-g/2-10,m));segs.push({m,g,o:Math.random()<.08?{y:m+(Math.random()-.5)*g*.5}:null});}
+reset();
+function down(e){if(e)e.preventDefault();hold=true;if(state!=='play'&&started){if(state==='over')reset();state='play'}}
+function up(){hold=false}
+c.addEventListener('pointerdown',down);addEventListener('pointerup',up);addEventListener('pointercancel',up);
+addEventListener('keydown',e=>{if(e.code==='KeyP'&&state==='play'){paused=!paused;return}
+ if(['Space','ArrowUp','KeyW','Enter'].includes(e.code)){e.preventDefault();if(!e.repeat)down()}});
+addEventListener('keyup',e=>{if(['Space','ArrowUp','KeyW','Enter'].includes(e.code))up()});
+let off=0;
+function step(){if(state!=='play'||paused)return;
+ vy+=hold?-0.35:0.35;vy=Math.max(-6,Math.min(6,vy));py+=vy;
+ off+=speed;dist+=speed;speed=3+dist/4000;gap=Math.max(H*0.22,H*0.6-dist/40);
+ while(off>=SEG){off-=SEG;segs.shift();newSeg()}
+ const gx=W*0.25,i=Math.floor((gx+off)/SEG),s=segs[i];
+ if(s){if(py<s.m-s.g/2+6||py>s.m+s.g/2-6)crash();
+  for(let k=i-1;k<=i+1;k++){const q=segs[k];if(q&&q.o){const ox=k*SEG-off;if(Math.abs(ox-gx)<14&&Math.abs(q.o.y-py)<16)crash()}}}
+ parts.push({x:gx-10,y:py,l:30});parts.forEach(p=>{p.x-=speed;p.l--});parts=parts.filter(p=>p.l>0);}
+function crash(){state='over';const sc=Math.floor(dist/10);if(sc>best){best=sc;localStorage.setItem('caveGliderBest',best)}}
+function draw(){x.fillStyle='#05010f';x.fillRect(0,0,W,H);
+ x.lineWidth=3;x.shadowBlur=14;
+ x.fillStyle='#1a0b3d';x.strokeStyle='#ff3df0';x.shadowColor='#ff3df0';
+ x.beginPath();x.moveTo(-off,0);segs.forEach((s,i)=>x.lineTo(i*SEG-off,s.m-s.g/2));x.lineTo(W+SEG,0);x.fill();
+ x.beginPath();segs.forEach((s,i)=>x.lineTo(i*SEG-off,s.m-s.g/2));x.stroke();
+ x.beginPath();x.moveTo(-off,H);segs.forEach((s,i)=>x.lineTo(i*SEG-off,s.m+s.g/2));x.lineTo(W+SEG,H);x.fill();
+ x.beginPath();segs.forEach((s,i)=>x.lineTo(i*SEG-off,s.m+s.g/2));x.stroke();
+ x.fillStyle='#ffd23d';x.shadowColor='#ffd23d';segs.forEach((s,i)=>{if(s.o){x.beginPath();x.arc(i*SEG-off,s.o.y,10,0,7);x.fill()}});
+ parts.forEach(p=>{x.fillStyle='rgba(120,255,255,'+p.l/40+')';x.fillRect(p.x,p.y-2,4,4)});
+ const gx=W*0.25;x.save();x.translate(gx,py);x.rotate(vy*0.08);x.fillStyle='#7ff';x.shadowColor='#7ff';
+ x.beginPath();x.moveTo(14,0);x.lineTo(-10,-9);x.lineTo(-5,0);x.lineTo(-10,9);x.closePath();x.fill();x.restore();x.shadowBlur=0;
+ document.getElementById('hud').textContent='CAVE GLIDER  Score '+Math.floor(dist/10)+'  Best '+best+(paused?'  PAUSED':'');
+ if(state!=='play'&&started){x.fillStyle='#fff';x.textAlign='center';x.font='bold 26px system-ui';
+  x.fillText(state==='over'?'CRASHED! Score '+Math.floor(dist/10):'CAVE GLIDER',W/2,H/2-30);
+  x.font='16px system-ui';x.fillText('Hold to rise, release to fall',W/2,H/2+5);
+  x.fillText('Tap / Space / Up to start  ·  P to pause',W/2,H/2+30)}}
+function loop(){step();draw();requestAnimationFrame(loop)}loop();
+</script></body></html>

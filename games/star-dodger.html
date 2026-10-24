@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Star Dodger — Arcadeline</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%;background:#05010f;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden;touch-action:none;user-select:none}
+#load{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#1a0b3d,#05010f);z-index:10;transition:opacity .6s}
+#load .pre{letter-spacing:.4em;font-size:clamp(12px,3.5vw,20px);color:#9ef;opacity:0;animation:fi 1s .3s forwards}
+#load h1{font-size:clamp(36px,11vw,90px);color:#ff3df0;text-shadow:0 0 12px #ff3df0,0 0 30px #7a2bff;margin:.3em 0 .1em;opacity:0;animation:pop .6s 1.6s forwards}
+#load .tag{font-size:clamp(14px,4vw,24px);color:#7ff;opacity:0;animation:fi .8s 2.6s forwards}
+#bar{width:min(70vw,420px);height:10px;border:1px solid #7ff;border-radius:6px;margin-top:2em;overflow:hidden}#bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7ff,#ff3df0);animation:fill 6.2s .3s linear forwards}
+#ball{position:absolute;bottom:18%;left:-60px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 0 18px #9ef;animation:roll 6.5s .3s linear forwards}
+@keyframes fi{to{opacity:1}}@keyframes pop{0%{opacity:0;transform:scale(.4)}80%{transform:scale(1.1)}to{opacity:1;transform:scale(1)}}@keyframes fill{to{width:100%}}
+@keyframes roll{to{left:calc(100% + 60px);width:70px;height:70px;transform:rotate(720deg)}}
+</style></head><body>
+<div id="load"><div class="pre">LEONLINK PRESENTS</div><h1>ARCADELINE</h1><div class="tag">Start small. Roll big.</div><div id="bar"><i></i></div><div id="ball"></div></div>
+<style>canvas{display:block;width:100vw;height:100vh}</style>
+<canvas id="c"></canvas>
+<div id="hud" style="position:fixed;top:8px;left:0;right:0;text-align:center;font:bold 16px system-ui;color:#7ff;pointer-events:none;z-index:2"></div>
+<script>
+let started=false;
+setTimeout(()=>{const l=document.getElementById('load');l.style.opacity=0;setTimeout(()=>l.remove(),600);started=true},7000);
+const c=document.getElementById('c'),x=c.getContext('2d'),hud=document.getElementById('hud');let W,H;
+function rs(){W=c.width=innerWidth;H=c.height=innerHeight}rs();addEventListener('resize',rs);
+let best=+localStorage.getItem('starDodgerBest')||0,state='ready',paused=false;
+let sx,sy,tx,ty,bul,shields,shieldT,t,score,spawn,ang,keys={},pickups,fx;
+function reset(){sx=tx=W/2;sy=ty=H*0.75;bul=[];pickups=[];fx=[];shields=1;shieldT=0;t=0;score=0;spawn=0;ang=0}
+reset();
+function burst(){const n=8+Math.min(16,t/8|0),cx=Math.random()*W,cy=-10,sp=1.5+Math.min(3,t/40);ang+=0.4;
+ const mode=Math.random();for(let i=0;i<n;i++){let a=mode<.5?Math.PI*(0.15+0.7*i/(n-1)):ang+i*Math.PI*2/n;
+ let ox=mode<.5?cx:W/2,oy=mode<.5?cy:H*0.25;bul.push({x:ox,y:oy,vx:Math.cos(a)*sp,vy:Math.abs(Math.sin(a))*sp*(mode<.5?1:Math.sign(Math.sin(a))||1),h:(t*20+i*15)%360})}}
+function start(){if(!started)return;if(state!=='play'){reset();state='play'}}
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=1;if(e.key===' '){start();e.preventDefault()}if(e.key.toLowerCase()==='p'&&state==='play')paused=!paused});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);
+let lt=null;c.addEventListener('pointerdown',e=>{start();lt={x:e.clientX,y:e.clientY}});
+c.addEventListener('pointermove',e=>{if(!lt||state!=='play'||paused)return;tx+=(e.clientX-lt.x)*1.3;ty+=(e.clientY-lt.y)*1.3;lt={x:e.clientX,y:e.clientY}});
+addEventListener('pointerup',()=>lt=null);
+let last=performance.now();
+function loop(n){const dt=Math.min(2,(n-last)/16.7);last=n;
+ if(state==='play'&&!paused){t+=dt/60;score+=dt;
+  const k=7*dt;if(keys.arrowleft||keys.a)tx-=k;if(keys.arrowright||keys.d)tx+=k;if(keys.arrowup||keys.w)ty-=k;if(keys.arrowdown||keys.s)ty+=k;
+  tx=Math.max(10,Math.min(W-10,tx));ty=Math.max(10,Math.min(H-10,ty));sx+=(tx-sx)*.5;sy+=(ty-sy)*.5;
+  spawn-=dt;if(spawn<=0){burst();spawn=Math.max(25,90-t*1.5)}
+  if(Math.random()<0.003*dt)pickups.push({x:20+Math.random()*(W-40),y:-10});
+  if(shieldT>0)shieldT-=dt;
+  for(const b of bul){b.x+=b.vx*dt;b.y+=b.vy*dt;if(Math.hypot(b.x-sx,b.y-sy)<9&&shieldT<=0){b.dead=1;if(shields>0){shields--;shieldT=90;fx.push({x:sx,y:sy,r:5})}else{state='over';if(score/10>best){best=score/10|0;localStorage.setItem('starDodgerBest',best)}}}}
+  bul=bul.filter(b=>!b.dead&&b.x>-30&&b.x<W+30&&b.y>-60&&b.y<H+30);
+  for(const p of pickups){p.y+=1.5*dt;if(Math.hypot(p.x-sx,p.y-sy)<22){p.dead=1;shields=Math.min(3,shields+1);score+=300}}
+  pickups=pickups.filter(p=>!p.dead&&p.y<H+20)}
+ x.fillStyle='#05010f';x.fillRect(0,0,W,H);
+ for(const b of bul){x.fillStyle=`hsl(${b.h},100%,65%)`;x.shadowColor=x.fillStyle;x.shadowBlur=10;x.beginPath();x.arc(b.x,b.y,5,0,7);x.fill()}
+ for(const p of pickups){x.strokeStyle='#7ff';x.shadowColor='#7ff';x.lineWidth=3;x.beginPath();x.arc(p.x,p.y,10,0,7);x.stroke()}
+ for(const f of fx){f.r+=3*dt;x.strokeStyle='rgba(127,255,255,'+Math.max(0,1-f.r/80)+')';x.beginPath();x.arc(f.x,f.y,f.r,0,7);x.stroke()}fx=fx.filter(f=>f.r<80);
+ if(state!=='over'||1){x.shadowColor='#ff3df0';x.shadowBlur=16;x.fillStyle=(shieldT>0&&(shieldT|0)%10<5)?'#fff':'#ff3df0';x.beginPath();x.moveTo(sx,sy-12);x.lineTo(sx-9,sy+10);x.lineTo(sx+9,sy+10);x.fill();
+  if(shields>0){x.strokeStyle='rgba(127,255,255,.6)';x.lineWidth=2;x.beginPath();x.arc(sx,sy,16,0,7);x.stroke()}}
+ x.shadowBlur=0;hud.textContent=`SCORE ${score/10|0}  ·  SHIELDS ${shields}  ·  BEST ${best}`+(paused?'  ·  PAUSED':'');
+ if(state!=='play'&&started){x.fillStyle='#fff';x.textAlign='center';x.font='bold 28px system-ui';x.fillText(state==='over'?'GAME OVER':'STAR DODGER',W/2,H/2-20);x.font='16px system-ui';x.fillStyle='#7ff';x.fillText('Tap / Space to start · drag anywhere to steer',W/2,H/2+14)}
+ requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script></body></html>

@@ -1,0 +1,67 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Frog Crossing — Arcadeline</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%;background:#05010f;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden;touch-action:none;user-select:none}
+#load{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#1a0b3d,#05010f);z-index:10;transition:opacity .6s}
+#load .pre{letter-spacing:.4em;font-size:clamp(12px,3.5vw,20px);color:#9ef;opacity:0;animation:fi 1s .3s forwards}
+#load h1{font-size:clamp(36px,11vw,90px);color:#ff3df0;text-shadow:0 0 12px #ff3df0,0 0 30px #7a2bff;margin:.3em 0 .1em;opacity:0;animation:pop .6s 1.6s forwards}
+#load .tag{font-size:clamp(14px,4vw,24px);color:#7ff;opacity:0;animation:fi .8s 2.6s forwards}
+#bar{width:min(70vw,420px);height:10px;border:1px solid #7ff;border-radius:6px;margin-top:2em;overflow:hidden}#bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7ff,#ff3df0);animation:fill 6.2s .3s linear forwards}
+#ball{position:absolute;bottom:18%;left:-60px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 0 18px #9ef;animation:roll 6.5s .3s linear forwards}
+@keyframes fi{to{opacity:1}}@keyframes pop{0%{opacity:0;transform:scale(.4)}80%{transform:scale(1.1)}to{opacity:1;transform:scale(1)}}@keyframes fill{to{width:100%}}
+@keyframes roll{to{left:calc(100% + 60px);width:70px;height:70px;transform:rotate(720deg)}}
+</style></head><body>
+<div id="load"><div class="pre">LEONLINK PRESENTS</div><h1>ARCADELINE</h1><div class="tag">Start small. Roll big.</div><div id="bar"><i></i></div><div id="ball"></div></div>
+<style>canvas{display:block;margin:34px auto 0}#pad{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);display:grid;grid-template-columns:repeat(3,64px);gap:6px;z-index:3}#pad b{height:52px;border:1px solid #7ff6;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#7ff;font-size:22px;background:#0a0420aa}</style>
+<canvas id="c"></canvas>
+<div id="hud" style="position:fixed;top:6px;left:0;right:0;text-align:center;font:bold 15px system-ui;color:#7ff;pointer-events:none;z-index:2"></div>
+<div id="pad"><i></i><b data-d="u">&#9650;</b><i></i><b data-d="l">&#9664;</b><b data-d="d">&#9660;</b><b data-d="r">&#9654;</b></div>
+<script>
+let started=false,paused=false;
+setTimeout(()=>{const l=document.getElementById('load');l.style.opacity=0;setTimeout(()=>l.remove(),600);started=true},7000);
+const c=document.getElementById('c'),x=c.getContext('2d'),hud=document.getElementById('hud');
+const COLS=13,ROWS=13,SLOTS=[1,3.5,6,8.5,11];let S,best=+localStorage.frogBest||0;
+let f,lanes,homes,score,lives,level,timer,maxRow,over=false,flash=0;
+function size(){S=Math.floor(Math.min(innerWidth/COLS,(innerHeight-160)/ROWS));c.width=S*COLS;c.height=S*ROWS}
+addEventListener('resize',size);size();
+function mkLanes(){const sp=1+level*0.25;lanes=[];
+[[3,1.0,3],[4,-1.4,2],[2,0.8,4],[3,-1.2,3],[4,1.6,2]].forEach((r,i)=>lanes[1+i]={t:'log',len:r[0],v:r[1]*sp,n:r[2],off:Math.random()*COLS});
+[[1,-1.5,3,'#ff3df0'],[2,1.1,2,'#ffd23d'],[1,-2.2,3,'#3dff9e'],[1,1.7,3,'#ff6a3d'],[2,-1.0,2,'#9ef']].forEach((r,i)=>lanes[7+i]={t:'car',len:r[0],v:r[1]*sp,n:r[2],off:Math.random()*COLS,col:r[3]});}
+function objs(L){const per=COLS+L.len*2,o=[];for(let k=0;k<L.n;k++)o.push((((L.off+k*per/L.n)%per)+per)%per-L.len);return o}
+function resetFrog(){f={r:12,x:6};timer=30;maxRow=12}
+function newGame(){score=0;lives=3;level=1;homes=[0,0,0,0,0];mkLanes();resetFrog();over=false}
+newGame();
+function die(){lives--;flash=1;if(lives<=0){over=true;if(score>best){best=score;localStorage.frogBest=best}}resetFrog()}
+function move(d){if(!started)return;if(over){newGame();return}if(paused)return;
+if(d=='u')f.r--;if(d=='d')f.r=Math.min(12,f.r+1);
+if(d=='l')f.x=Math.max(0,Math.round(f.x)-1);else if(d=='r')f.x=Math.min(COLS-1,Math.round(f.x)+1);else if(!lanes[f.r]||lanes[f.r].t!='log')f.x=Math.round(f.x);
+if(f.r<maxRow){score+=10;maxRow=f.r}
+if(f.r==0){const h=SLOTS.findIndex(s=>Math.abs(f.x-s)<0.9);if(h<0||homes[h])return die();
+homes[h]=1;score+=50+Math.floor(timer)*5;if(homes.every(v=>v)){score+=500;level++;homes=[0,0,0,0,0];mkLanes()}resetFrog()}}
+addEventListener('keydown',e=>{const k=e.key.toLowerCase(),m={arrowup:'u',w:'u',arrowdown:'d',s:'d',arrowleft:'l',a:'l',arrowright:'r',d:'r'};
+if(m[k]){e.preventDefault();move(m[k])}if(k=='p')paused=!paused;if(k==' '){e.preventDefault();if(over)newGame()}});
+document.querySelectorAll('#pad b').forEach(b=>b.addEventListener('pointerdown',e=>{e.preventDefault();move(b.dataset.d)}));
+let sx,sy;c.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY},{passive:true});
+c.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
+if(Math.max(Math.abs(dx),Math.abs(dy))<15)return move('u');move(Math.abs(dx)>Math.abs(dy)?(dx>0?'r':'l'):(dy>0?'d':'u'))});
+let last=performance.now();
+function step(t){const dt=Math.min(.05,(t-last)/1000);last=t;
+if(started&&!paused&&!over){lanes.forEach(L=>{if(L)L.off+=L.v*dt});timer-=dt;if(timer<=0)die();const L=lanes[f.r];
+if(L&&L.t=='car'){for(const p of objs(L))if(f.x+0.8>p&&f.x+0.2<p+L.len){die();break}}
+else if(L&&L.t=='log'){if(!objs(L).some(p=>f.x+0.5>p&&f.x+0.5<p+L.len))die();else{f.x+=L.v*dt;if(f.x<-0.4||f.x>COLS-0.6)die()}}}
+draw();requestAnimationFrame(step)}
+function glow(col,b){x.shadowColor=col;x.shadowBlur=b}
+function draw(){x.fillStyle='#05010f';x.fillRect(0,0,c.width,c.height);
+x.fillStyle='#0a1a4a';x.fillRect(0,S,c.width,S*5);x.fillStyle='#12062a';x.fillRect(0,S*7,c.width,S*5);
+x.fillStyle='#1b3d1b';x.fillRect(0,S*6,c.width,S);x.fillRect(0,S*12,c.width,S);x.fillStyle='#0d2a10';x.fillRect(0,0,c.width,S);
+SLOTS.forEach((s,i)=>{x.fillStyle='#05010f';x.fillRect(s*S,2,S,S-4);if(homes[i]){glow('#3dff9e',12);x.fillStyle='#3dff9e';x.beginPath();x.arc(s*S+S/2,S/2,S*.32,0,7);x.fill();x.shadowBlur=0}});
+lanes.forEach((L,r)=>{if(!L)return;for(const p of objs(L)){if(L.t=='log'){glow('#ffb03d',8);x.fillStyle='#8a4a1a';x.fillRect(p*S+2,r*S+S*.15,L.len*S-4,S*.7)}
+else{glow(L.col,12);x.fillStyle=L.col;x.fillRect(p*S+3,r*S+S*.18,L.len*S-6,S*.64)}x.shadowBlur=0}});
+const fx=f.x*S+S/2,fy=f.r*S+S/2;glow('#3dff9e',16);x.fillStyle='#3dff9e';x.beginPath();x.arc(fx,fy,S*.36,0,7);x.fill();x.shadowBlur=0;
+x.fillStyle='#05010f';x.beginPath();x.arc(fx-S*.13,fy-S*.12,S*.07,0,7);x.arc(fx+S*.13,fy-S*.12,S*.07,0,7);x.fill();
+x.fillStyle='#ff3df0';x.fillRect(0,c.height-4,c.width*Math.max(0,timer)/30,4);
+if(flash>0){x.fillStyle='rgba(255,40,80,'+flash*.5+')';x.fillRect(0,0,c.width,c.height);flash-=.05}
+hud.textContent='SCORE '+score+'  LIVES '+Math.max(0,lives)+'  LVL '+level+'  BEST '+best;
+if(paused||over){x.fillStyle='#05010fcc';x.fillRect(0,0,c.width,c.height);x.fillStyle='#ff3df0';x.textAlign='center';x.font='bold '+S*.9+'px system-ui';
+x.fillText(over?'GAME OVER':'PAUSED',c.width/2,c.height/2);x.font=S*.45+'px system-ui';x.fillStyle='#7ff';if(over)x.fillText('Tap or press Space to play again',c.width/2,c.height/2+S)}}
+requestAnimationFrame(step);
+</script></body></html>

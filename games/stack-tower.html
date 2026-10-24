@@ -1,0 +1,48 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Stack Tower — Arcadeline</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%;background:#05010f;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden;touch-action:none;user-select:none}
+#load{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#1a0b3d,#05010f);z-index:10;transition:opacity .6s}
+#load .pre{letter-spacing:.4em;font-size:clamp(12px,3.5vw,20px);color:#9ef;opacity:0;animation:fi 1s .3s forwards}
+#load h1{font-size:clamp(36px,11vw,90px);color:#ff3df0;text-shadow:0 0 12px #ff3df0,0 0 30px #7a2bff;margin:.3em 0 .1em;opacity:0;animation:pop .6s 1.6s forwards}
+#load .tag{font-size:clamp(14px,4vw,24px);color:#7ff;opacity:0;animation:fi .8s 2.6s forwards}
+#bar{width:min(70vw,420px);height:10px;border:1px solid #7ff;border-radius:6px;margin-top:2em;overflow:hidden}#bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7ff,#ff3df0);animation:fill 6.2s .3s linear forwards}
+#ball{position:absolute;bottom:18%;left:-60px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 0 18px #9ef;animation:roll 6.5s .3s linear forwards}
+@keyframes fi{to{opacity:1}}@keyframes pop{0%{opacity:0;transform:scale(.4)}80%{transform:scale(1.1)}to{opacity:1;transform:scale(1)}}@keyframes fill{to{width:100%}}
+@keyframes roll{to{left:calc(100% + 60px);width:70px;height:70px;transform:rotate(720deg)}}
+</style></head><body>
+<div id="load"><div class="pre">LEONLINK PRESENTS</div><h1>ARCADELINE</h1><div class="tag">Start small. Roll big.</div><div id="bar"><i></i></div><div id="ball"></div></div>
+<style>#hud{position:fixed;top:10px;left:0;right:0;display:flex;justify-content:center;gap:24px;font-weight:700;color:#7ff;font-size:clamp(16px,4.5vw,24px);z-index:2;pointer-events:none}
+canvas{display:block;width:100vw;height:100vh}
+#msg{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#05010fcc;text-align:center;gap:12px;padding:20px;z-index:3}
+#msg h2{color:#ff3df0;font-size:clamp(28px,8vw,52px);text-shadow:0 0 12px #ff3df0}#msg p{color:#cdf;font-size:clamp(13px,3.6vw,18px)}
+button{font:inherit;font-weight:700;padding:12px 28px;border-radius:30px;border:2px solid #7ff;background:#130838;color:#7ff;font-size:18px}</style>
+<div id="hud"><span>Height <b id="sc">0</b></span><span>Best <b id="hi">0</b></span></div><canvas id="c"></canvas>
+<div id="msg"><h2 id="mt">STACK TOWER</h2><p id="mp">Tap, click or press Space to drop the sliding block.<br>Overhangs get trimmed. Perfect drops grow your block back.</p><button id="go">PLAY</button></div>
+<script>
+setTimeout(()=>{const l=document.getElementById('load');l.style.opacity=0;setTimeout(()=>l.remove(),600)},7000);
+const c=document.getElementById('c'),x=c.getContext('2d'),msg=document.getElementById('msg');let W,H,D;
+function rs(){D=devicePixelRatio||1;W=innerWidth;H=innerHeight;c.width=W*D;c.height=H*D;x.setTransform(D,0,0,D,0,0)}addEventListener('resize',rs);rs();
+let best=+localStorage.getItem('stackBest')||0;hi.textContent=best;
+let st,cur,run=false,cam=0,combo=0,bits=[];const BH=()=>Math.max(18,Math.min(32,H/22)),BW=()=>Math.min(W*.6,320);
+function start(){const w=BW();st=[{x:(W-w)/2,w,h:0}];combo=0;bits=[];cam=0;nxt();run=true;msg.style.display='none';sc.textContent=0}
+function nxt(){const t=st[st.length-1],n=st.length;cur={x:n%2?-t.w:W,w:t.w,dir:n%2?1:-1,sp:2.2+n*.12}}
+function drop(){if(!run){if(!document.getElementById('load'))start();return}
+const t=st[st.length-1];let l=Math.max(cur.x,t.x),r=Math.min(cur.x+cur.w,t.x+t.w);
+if(Math.abs(cur.x-t.x)<5){cur.x=t.x;l=t.x;r=t.x+t.w;combo++;if(combo>=3)r=Math.min(r+8,t.x+t.w+8)}else combo=0;
+if(r<=l){bits.push({x:cur.x,w:cur.w,y:st.length,vy:0});over();return}
+if(cur.x<l)bits.push({x:cur.x,w:l-cur.x,y:st.length,vy:0});if(cur.x+cur.w>r)bits.push({x:r,w:cur.x+cur.w-r,y:st.length,vy:0});
+st.push({x:l,w:r-l});sc.textContent=st.length-1;nxt()}
+function over(){run=false;const s=st.length-1;if(s>best){best=s;localStorage.setItem('stackBest',s);hi.textContent=s}
+setTimeout(()=>{mt.textContent='TOWER FELL';mp.innerHTML='Height: '+s+'<br>Best: '+best;go.textContent='AGAIN';msg.style.display='flex'},600)}
+function col(i){return 'hsl('+(280+i*9)%360+',100%,60%)'}
+function loop(){const bh=BH(),base=H*.8;x.fillStyle='#05010f';x.fillRect(0,0,W,H);
+const tc=Math.max(0,st?st.length*bh-H*.45:0);cam+=(tc-cam)*.1;
+if(st){if(run){cur.x+=cur.dir*cur.sp;if(cur.x+cur.w>W+20&&cur.dir>0||cur.x<-20&&cur.dir<0)cur.dir*=-1}
+st.forEach((b,i)=>{const y=base-i*bh+cam;x.fillStyle=col(i);x.shadowColor=col(i);x.shadowBlur=10;x.fillRect(b.x,y,b.w,bh-2)});
+if(run){const y=base-st.length*bh+cam;x.fillStyle=col(st.length);x.fillRect(cur.x,y,cur.w,bh-2)}
+bits.forEach(b=>{b.vy+=.5;b.y-=b.vy/bh;x.globalAlpha=.6;x.fillStyle='#fff';x.fillRect(b.x,base-b.y*bh+cam,b.w,bh-2);x.globalAlpha=1});bits=bits.filter(b=>base-b.y*bh+cam<H+50);x.shadowBlur=0}
+requestAnimationFrame(loop)}loop();
+go.onclick=e=>{e.stopPropagation();if(!document.getElementById('load'))start()};
+c.addEventListener('pointerdown',e=>{e.preventDefault();if(run)drop()});
+addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowDown'){e.preventDefault();if(run)drop();else if(msg.style.display!=='none'&&!document.getElementById('load'))start()}});
+</script></body></html>

@@ -1,0 +1,16 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>ARCADELINE — Iceman</title><style>
+html,body{margin:0;height:100%;background:#020814;overflow:hidden;font-family:"Courier New",monospace;color:#bff6ff}
+#s{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .8s}
+.p{letter-spacing:.6em;font-size:16px;opacity:0;animation:f 1s .3s forwards;color:#7fe9ff}
+h1{font-size:clamp(40px,9vw,96px);margin:18px 0;letter-spacing:.12em;color:#e8fdff;opacity:0;text-shadow:0 0 10px #3fd8ff,0 0 30px #1a9fff,0 0 60px #0a5cff;animation:f 1s 1.6s forwards}
+.t{font-size:18px;opacity:0;animation:f 1s 2.8s forwards;color:#9fdcff}
+.b{width:min(420px,70vw);height:12px;border:2px solid #3fd8ff;margin-top:36px;box-shadow:0 0 12px #3fd8ff;opacity:0;animation:f .5s 3.2s forwards}
+.b i{display:block;height:100%;width:0;background:linear-gradient(90deg,#0a5cff,#3fd8ff,#fff);animation:g 3s 3.4s linear forwards}
+.flake{position:fixed;top:-10px;color:#cff;opacity:.6;animation:d linear infinite}
+@keyframes f{to{opacity:1}}@keyframes g{to{width:100%}}@keyframes d{to{transform:translateY(110vh)}}
+</style></head><body><div id="s"><div class="p">LEONLINK PRESENTS</div><h1>ARCADELINE</h1><div class="t">Stay frosty. Play cold-blooded.</div><div class="b"><i></i></div></div>
+<script>
+for(let i=0;i<40;i++){const f=document.createElement('div');f.className='flake';f.textContent='❄';f.style.left=Math.random()*100+'vw';f.style.fontSize=(8+Math.random()*14)+'px';f.style.animationDuration=(4+Math.random()*6)+'s';f.style.animationDelay=(-Math.random()*6)+'s';document.body.appendChild(f)}
+setTimeout(()=>{document.getElementById('s').style.opacity=0},6400);
+setTimeout(()=>{window.dispatchEvent(new Event('arcadeline-start'));if(window.startGame)startGame();},7000);
+</script></body></html>

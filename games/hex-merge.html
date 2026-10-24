@@ -1,0 +1,70 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Hex Merge | Arcadeline</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#05060f;overflow:hidden;font-family:"Courier New",monospace;color:#fff;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+#s{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .8s;z-index:10;background:#05060f}
+.p{letter-spacing:.5em;font-size:max(10px,2.2vmin);color:#9fdcff;opacity:0;animation:f 1s .3s forwards}
+#s h1{font-size:12vmin;margin:.3em 0;text-shadow:0 0 10px #7fd8ff,0 0 30px #ff3bd4;opacity:0;transform:scale(.3);animation:r 1.2s 1.5s cubic-bezier(.2,1.6,.4,1) forwards}
+.t{font-size:max(13px,3vmin);color:#ff8bf0;opacity:0;animation:f 1s 3s forwards}
+.b{width:50vmin;height:2.4vmin;border:2px solid #7fd8ff;border-radius:2vmin;margin-top:5vmin;overflow:hidden;box-shadow:0 0 12px #7fd8ff}
+.b i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7fd8ff,#ff3bd4);animation:g 6.2s .3s linear forwards}
+.ball{position:absolute;bottom:8vmin;left:-10vmin;width:4vmin;height:4vmin;border-radius:50%;background:#eaf8ff;box-shadow:0 0 15px #fff;animation:roll 6.4s .3s ease-in forwards}
+@keyframes f{to{opacity:1}}@keyframes r{to{opacity:1;transform:scale(1)}}@keyframes g{to{width:100%}}
+@keyframes roll{to{left:110vw;width:14vmin;height:14vmin;transform:rotate(1080deg)}}
+#ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#05060fdd;text-align:center;padding:4vmin;z-index:5}
+#ov h2{font-size:max(28px,9vmin);margin:0;text-shadow:0 0 10px #7fd8ff,0 0 30px #ff3bd4}
+#ov p{font-size:max(14px,3vmin);color:#ccd;max-width:90vw}
+button{font:inherit;font-size:max(18px,4vmin);padding:2vmin 6vmin;border:2px solid #ff3bd4;border-radius:3vmin;background:#1a0a2a;color:#fff;box-shadow:0 0 15px #ff3bd4}
+#hud{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:2vmin 4vmin;font-size:max(14px,3.2vmin);color:#9fdcff;text-shadow:0 0 8px #7fd8ff;z-index:2}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#nx{display:none}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="s"><div class="p">LEONLINK PRESENTS</div><h1>ARCADELINE</h1><div class="t">Start small. Roll big.</div><div class="b"><i></i></div><div class="ball"></div></div>
+<div id="hud"><span id="bs">BEST 0</span><span id="nx">NEXT</span><span id="sc">0</span></div>
+<div id="ov"><h2 id="ttl">HEX MERGE</h2><p id="msg">Drop numbered neon hexes onto the honeycomb. Three or more matching hexes touching each other merge into one hex of the next number, and merges can chain. Keep merging before the board fills up!<br>Touch: tap an empty cell to drop. Keys: arrows / WASD to move the cursor, Space or Enter to drop, P to pause.</p><button id="go">PLAY</button></div>
+<script>
+const $=id=>document.getElementById(id),cv=$('c'),x=cv.getContext('2d');
+const R=3,cells=[];for(let q=-R;q<=R;q++)for(let r=-R;r<=R;r++){if(Math.abs(q+r)<=R)cells.push({q,r,v:0,p:0})}
+const key=(q,r)=>q+','+r,map={};cells.forEach(c=>map[key(c.q,c.r)]=c);
+const DIR=[[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+const COL=['#000','#7fd8ff','#5dff9e','#ffe45d','#ff9b3b','#ff3bd4','#b36bff','#ff4d6d','#ffffff'];
+let W,H,S,cx,cy,run=false,paused=false,score=0,best=+(localStorage.hmBest||0),next=1,cur=map['0,0'],parts=[],busy=false;
+function rs(){const d=Math.min(2,devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=W*d;cv.height=H*d;x.setTransform(d,0,0,d,0,0);S=Math.min(W/13.5,H/14);cx=W/2;cy=H*.54}addEventListener('resize',rs);rs();
+function pos(c){return[cx+S*1.5*c.q,cy+S*Math.sqrt(3)*(c.r+c.q/2)]}
+function hex(px,py,s){x.beginPath();for(let i=0;i<6;i++){const a=Math.PI/3*i;x.lineTo(px+s*Math.cos(a),py+s*Math.sin(a))}x.closePath()}
+function nb(c){return DIR.map(d=>map[key(c.q+d[0],c.r+d[1])]).filter(Boolean)}
+function group(c){const v=c.v,seen=new Set([c]),st=[c];while(st.length){const a=st.pop();for(const b of nb(a))if(b.v===v&&!seen.has(b)){seen.add(b);st.push(b)}}return[...seen]}
+function rnd(){const mx=Math.max(1,...cells.map(c=>c.v));const top=Math.min(3,Math.max(1,mx-1));return 1+Math.floor(Math.random()*top)}
+function boom(c,col){const[p,q]=pos(c);for(let i=0;i<14;i++){const a=Math.random()*6.28,v=1+Math.random()*4;parts.push({x:p,y:q,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:1,col})}}
+function hud(){$('sc').textContent=score;$('bs').textContent='BEST '+best}
+function start(){cells.forEach(c=>{c.v=0;c.p=0});score=0;next=rnd();cur=map['0,0'];for(let i=0;i<4;i++){const e=cells.filter(c=>!c.v);e[Math.floor(Math.random()*e.length)].v=1+Math.floor(Math.random()*2)}
+cells.forEach(c=>{if(c.v&&group(c).length>=3)c.v=0});run=true;paused=false;$('ov').style.display='none';hud()}
+function over(){run=false;if(score>best){best=score;localStorage.hmBest=best}hud();$('ttl').textContent='BOARD FULL';$('msg').innerHTML='Score: '+score+'<br>Best: '+best;$('go').textContent='PLAY AGAIN';$('ov').style.display='flex'}
+function drop(c){if(!run||paused||busy||!c||c.v)return;c.v=next;c.p=1;next=rnd();score+=c.v;resolve(c,1)}
+function resolve(c,chain){const g=group(c);if(g.length>=3&&c.v<8){busy=true;setTimeout(()=>{const v=c.v;g.forEach(o=>{if(o!==c){o.v=0;boom(o,COL[v])}});c.v=v+1;c.p=1;boom(c,COL[v+1]);score+=g.length*v*10*chain;hud();resolve(c,chain+1)},180)}
+else if(g.length>=3&&c.v===8){g.forEach(o=>{boom(o,'#fff');o.v=0});score+=5000*chain;busy=false;hud();check()}
+else{busy=false;hud();check()}}
+function check(){if(cells.every(c=>c.v))over()}
+function cell(px,py){let b=null,bd=1e9;for(const c of cells){const[p,q]=pos(c),d=(p-px)**2+(q-py)**2;if(d<bd){bd=d;b=c}}return bd<S*S?b:null}
+cv.addEventListener('pointerdown',e=>{e.preventDefault();const c=cell(e.clientX,e.clientY);if(c){cur=c;drop(c)}});
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(k==='p'&&run){paused=!paused;return}if(!run)return;
+let d=null;if(k==='arrowright'||k==='d')d=[1,0];if(k==='arrowleft'||k==='a')d=[-1,0];if(k==='arrowup'||k==='w')d=[0,-1];if(k==='arrowdown'||k==='s')d=[0,1];
+if(d){e.preventDefault();const n=map[key(cur.q+d[0],cur.r+d[1])]||(d[0]?map[key(cur.q+d[0],cur.r-d[0])]:null);if(n)cur=n}
+if(k===' '||k==='enter'){e.preventDefault();drop(cur)}});
+$('go').onclick=start;
+function loop(){x.fillStyle='#05060f';x.fillRect(0,0,W,H);
+for(const c of cells){const[p,q]=pos(c);hex(p,q,S*.92);x.lineWidth=2;
+if(c.v){const col=COL[c.v];x.fillStyle=col+'33';x.fill();x.shadowColor=col;x.shadowBlur=14+c.p*20;x.strokeStyle=col;x.stroke();x.shadowBlur=0;
+x.fillStyle=col;x.font='bold '+Math.round(S*(.7+c.p*.3))+'px Courier New';x.textAlign='center';x.textBaseline='middle';x.fillText(c.v,p,q+1);c.p*=.85}
+else{x.strokeStyle='#2a3a66';x.stroke()}
+if(c===cur&&run){hex(p,q,S*.75);x.strokeStyle='#fff';x.setLineDash([4,4]);x.stroke();x.setLineDash([])}}
+const[np,nq]=[W/2,cy-S*6.1];hex(np,nq,S*.6);x.fillStyle=COL[next]+'33';x.fill();x.strokeStyle=COL[next];x.shadowColor=COL[next];x.shadowBlur=14;x.stroke();x.shadowBlur=0;
+x.fillStyle=COL[next];x.font='bold '+Math.round(S*.55)+'px Courier New';x.textAlign='center';x.textBaseline='middle';x.fillText(next,np,nq+1);
+x.fillStyle='#9fdcff';x.font=Math.round(S*.35)+'px Courier New';x.fillText('NEXT',np,nq-S*.9);
+parts=parts.filter(o=>(o.l-=.03)>0);for(const o of parts){o.x+=o.vx;o.y+=o.vy;x.globalAlpha=o.l;x.fillStyle=o.col;x.fillRect(o.x-2,o.y-2,4,4)}x.globalAlpha=1;
+if(paused){x.fillStyle='#fff';x.font='bold '+Math.round(S)+'px Courier New';x.fillText('PAUSED',W/2,H*.12)}
+requestAnimationFrame(loop)}
+hud();loop();
+setTimeout(()=>{$('s').style.opacity=0;setTimeout(()=>$('s').remove(),800)},6200);
+</script></body></html>

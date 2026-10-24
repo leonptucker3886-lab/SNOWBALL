@@ -1,0 +1,90 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Laser Tanks | Arcadeline</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#05060f;overflow:hidden;font-family:"Courier New",monospace;color:#fff;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+#s{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .8s;z-index:10;background:#05060f}
+.p{letter-spacing:.5em;font-size:max(10px,2.2vmin);color:#9fdcff;opacity:0;animation:f 1s .3s forwards}
+#s h1{font-size:12vmin;margin:.3em 0;text-shadow:0 0 10px #7fd8ff,0 0 30px #ff3bd4;opacity:0;transform:scale(.3);animation:r 1.2s 1.5s cubic-bezier(.2,1.6,.4,1) forwards}
+.t{font-size:max(13px,3vmin);color:#ff8bf0;opacity:0;animation:f 1s 3s forwards}
+.b{width:50vmin;height:2.4vmin;border:2px solid #7fd8ff;border-radius:2vmin;margin-top:5vmin;overflow:hidden;box-shadow:0 0 12px #7fd8ff}
+.b i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7fd8ff,#ff3bd4);animation:g 6.2s .3s linear forwards}
+.ball{position:absolute;bottom:8vmin;left:-10vmin;width:4vmin;height:4vmin;border-radius:50%;background:#eaf8ff;box-shadow:0 0 15px #fff;animation:roll 6.4s .3s ease-in forwards}
+@keyframes f{to{opacity:1}}@keyframes r{to{opacity:1;transform:scale(1)}}@keyframes g{to{width:100%}}
+@keyframes roll{to{left:110vw;width:14vmin;height:14vmin;transform:rotate(1080deg)}}
+#ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#05060fdd;text-align:center;padding:4vmin;z-index:5}
+#ov h2{font-size:max(28px,9vmin);margin:0;text-shadow:0 0 10px #7fd8ff,0 0 30px #ff3bd4}
+#ov p{font-size:max(14px,3vmin);color:#ccd;max-width:90vw}
+button{font:inherit;font-size:max(18px,4vmin);padding:2vmin 6vmin;border:2px solid #ff3bd4;border-radius:3vmin;background:#1a0a2a;color:#fff;box-shadow:0 0 15px #ff3bd4}
+#hud{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:2vmin 4vmin;font-size:max(14px,3.2vmin);color:#9fdcff;text-shadow:0 0 8px #7fd8ff;z-index:2}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#nx{display:none}
+#pad{position:fixed;left:3vmin;bottom:3vmin;width:34vmin;height:34vmin;border:2px solid #7fd8ff55;border-radius:50%;z-index:3;display:none}
+#pad i{position:absolute;left:50%;top:50%;width:14vmin;height:14vmin;margin:-7vmin;border-radius:50%;background:#7fd8ff44;border:2px solid #7fd8ff}
+#fb{position:fixed;right:4vmin;bottom:6vmin;width:22vmin;height:22vmin;border-radius:50%;border:2px solid #ff3bd4;background:#ff3bd433;color:#fff;font-size:4vmin;display:none;align-items:center;justify-content:center;z-index:3;box-shadow:0 0 15px #ff3bd4}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="s"><div class="p">LEONLINK PRESENTS</div><h1>ARCADELINE</h1><div class="t">Start small. Roll big.</div><div class="b"><i></i></div><div class="ball"></div></div>
+<div id="hud"><span id="bs">BEST 0</span><span id="lv">LV 1</span><span id="sc">0</span></div>
+<div id="pad"><i id="knob"></i></div><div id="fb">FIRE</div>
+<div id="ov"><h2 id="ttl">LASER TANKS</h2><p id="msg">Battle CPU tanks in a walled neon arena. Your laser shots bounce off a wall once, so bank them around cover! Clear every enemy tank to reach the next arena. 3 lives.<br>Touch: left stick to drive, FIRE to shoot. Keys: arrows / WASD to drive, Space to fire, P to pause.</p><button id="go">PLAY</button></div>
+<script>
+const $=id=>document.getElementById(id),cv=$('c'),x=cv.getContext('2d');
+let W,H,S,ox,oy;const GW=20,GH=14;
+function rs(){W=cv.width=innerWidth*devicePixelRatio;H=cv.height=innerHeight*devicePixelRatio;S=Math.min(W/GW,(H*.9)/GH);ox=(W-S*GW)/2;oy=(H-S*GH)/2+H*.03}
+addEventListener('resize',rs);rs();
+let walls=[],me,en=[],sh=[],parts=[],score=0,lives=3,lvl=1,run=false,paused=false,best=+localStorage.lt_best||0,keys={},joy={x:0,y:0},fireT=false;
+function hit(px,py,r){for(const w of walls)if(px+r>w.x&&px-r<w.x+w.w&&py+r>w.y&&py-r<w.y+w.h)return true;return false}
+function mkLevel(){walls=[];const r=(a,b,c,d)=>walls.push({x:a,y:b,w:c,h:d});
+r(0,0,GW,.4);r(0,GH-.4,GW,.4);r(0,0,.4,GH);r(GW-.4,0,.4,GH);
+let seed=lvl*97+13;const rnd=()=>(seed=(seed*9301+49297)%233280)/233280;const n=4+Math.min(lvl,6);
+for(let i=0;i<n;i++){const v=rnd()<.5,w=v?.5:2+rnd()*3,h=v?2+rnd()*3:.5;r(3.5+rnd()*(GW-7-w),2+rnd()*(GH-4-h),w,h)}
+me={x:2,y:GH/2,a:0,cd:0,inv:90};en=[];sh=[];const ne=Math.min(2+lvl,8);
+for(let i=0;i<ne;i++){let p,k=0;do{p={x:GW-2-rnd()*7,y:1.5+rnd()*(GH-3)}}while(hit(p.x,p.y,.5)&&++k<50);en.push({x:p.x,y:p.y,a:Math.PI,cd:80+rnd()*60,t:0,ta:Math.PI,sp:.03+lvl*.004})}}
+function move(t,dx,dy){if(!hit(t.x+dx,t.y,.42))t.x+=dx;if(!hit(t.x,t.y+dy,.42))t.y+=dy}
+function fire(t,m){sh.push({x:t.x+Math.cos(t.a)*.6,y:t.y+Math.sin(t.a)*.6,vx:Math.cos(t.a)*.18,vy:Math.sin(t.a)*.18,b:1,m,l:240})}
+function boom(X,Y,c){for(let i=0;i<24;i++){const a=Math.random()*6.3,s=Math.random()*.15;parts.push({x:X,y:Y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:1,c})}}
+function los(a,b){const d=Math.hypot(b.x-a.x,b.y-a.y),n=Math.ceil(d*4);for(let i=1;i<n;i++)if(hit(a.x+(b.x-a.x)*i/n,a.y+(b.y-a.y)*i/n,.05))return false;return true}
+function hud(){$('sc').textContent=score;$('bs').textContent='BEST '+best;$('lv').textContent='LV '+lvl+'  LIVES '+lives}
+function step(){
+let dx=(keys.arrowright||keys.d?1:0)-(keys.arrowleft||keys.a?1:0)+joy.x,dy=(keys.arrowdown||keys.s?1:0)-(keys.arrowup||keys.w?1:0)+joy.y;
+const m=Math.hypot(dx,dy);if(m>.15){dx/=Math.max(1,m);dy/=Math.max(1,m);me.a=Math.atan2(dy,dx);move(me,dx*.07,dy*.07)}
+if(me.cd>0)me.cd--;if(me.inv>0)me.inv--;
+if((keys[' ']||fireT)&&me.cd<=0&&sh.filter(s=>s.m).length<3){fire(me,true);me.cd=18}
+for(const e of en){e.t--;const see=los(e,me);
+if(see)e.ta=Math.atan2(me.y-e.y,me.x-e.x);else if(e.t<=0){e.ta=Math.random()*6.3;e.t=60+Math.random()*80}
+let da=e.ta-e.a;da=Math.atan2(Math.sin(da),Math.cos(da));e.a+=Math.max(-.06,Math.min(.06,da));
+if(!see||Math.hypot(me.x-e.x,me.y-e.y)>5){const px=e.x,py=e.y;move(e,Math.cos(e.a)*e.sp,Math.sin(e.a)*e.sp);if(e.x==px&&e.y==py)e.t=0}
+if(--e.cd<=0&&see&&Math.abs(da)<.2){fire(e,false);e.cd=Math.max(40,110-lvl*8)+Math.random()*40}}
+for(const s of sh){s.l--;const nx=s.x+s.vx,ny=s.y+s.vy;
+if(hit(nx,ny,.08)){if(s.b-->0){if(hit(nx,s.y,.08))s.vx*=-1;else if(hit(s.x,ny,.08))s.vy*=-1;else{s.vx*=-1;s.vy*=-1}}else{s.l=0;boom(s.x,s.y,'#fff')}}else{s.x=nx;s.y=ny}
+if(s.m)for(const e of en)if(!e.dead&&s.l>0&&Math.hypot(e.x-s.x,e.y-s.y)<.5){e.dead=1;s.l=0;score+=100*lvl;boom(e.x,e.y,'#ff3bd4')}
+if(me.inv<=0&&s.l>0&&(!s.m||s.b<1)&&Math.hypot(me.x-s.x,me.y-s.y)<.45){s.l=0;boom(me.x,me.y,'#5cffb0');lives--;me.inv=120;me.x=2;me.y=GH/2;if(lives<=0){over();return}}}
+sh=sh.filter(s=>s.l>0);en=en.filter(e=>!e.dead);
+if(!en.length){lvl++;score+=500;mkLevel()}
+if(score>best){best=score;localStorage.lt_best=best}hud()}
+function tank(t,c){x.save();x.translate(ox+t.x*S,oy+t.y*S);x.rotate(t.a);x.strokeStyle=c;x.shadowColor=c;x.shadowBlur=14;x.lineWidth=S*.08;
+x.strokeRect(-S*.38,-S*.32,S*.76,S*.64);x.beginPath();x.arc(0,0,S*.18,0,7);x.stroke();x.beginPath();x.moveTo(S*.15,0);x.lineTo(S*.6,0);x.stroke();x.restore()}
+function draw(){x.fillStyle='#05060f';x.fillRect(0,0,W,H);x.strokeStyle='#142040';x.lineWidth=1;
+for(let i=0;i<=GW;i++){x.beginPath();x.moveTo(ox+i*S,oy);x.lineTo(ox+i*S,oy+GH*S);x.stroke()}
+for(let j=0;j<=GH;j++){x.beginPath();x.moveTo(ox,oy+j*S);x.lineTo(ox+GW*S,oy+j*S);x.stroke()}
+x.fillStyle='#1a2a5a';x.strokeStyle='#7fd8ff';x.shadowColor='#7fd8ff';x.shadowBlur=10;x.lineWidth=2;
+for(const w of walls){x.fillRect(ox+w.x*S,oy+w.y*S,w.w*S,w.h*S);x.strokeRect(ox+w.x*S,oy+w.y*S,w.w*S,w.h*S)}x.shadowBlur=0;
+for(const e of en)tank(e,'#ff3bd4');if(me&&!(me.inv>0&&me.inv%10<5))tank(me,'#5cffb0');
+for(const s of sh){x.fillStyle=s.m?'#5cffb0':'#ffd23b';x.shadowColor=x.fillStyle;x.shadowBlur=12;x.beginPath();x.arc(ox+s.x*S,oy+s.y*S,S*.1,0,7);x.fill()}x.shadowBlur=0;
+parts=parts.filter(p=>(p.l-=.03)>0);for(const p of parts){p.x+=p.vx;p.y+=p.vy;x.globalAlpha=p.l;x.fillStyle=p.c;x.fillRect(ox+p.x*S-2,oy+p.y*S-2,4,4)}x.globalAlpha=1;
+if(paused){x.fillStyle='#fff';x.font='bold '+Math.round(S*1.2)+'px Courier New';x.textAlign='center';x.fillText('PAUSED',W/2,H/2)}}
+function loop(){if(run&&!paused)step();draw();requestAnimationFrame(loop)}
+function start(){score=0;lives=3;lvl=1;mkLevel();run=true;paused=false;$('ov').style.display='none';if(matchMedia('(pointer:coarse)').matches){$('pad').style.display='block';$('fb').style.display='flex'}hud()}
+function over(){run=false;$('ttl').textContent='GAME OVER';$('msg').textContent='Score '+score+'  |  Best '+best;$('go').textContent='PLAY AGAIN';$('ov').style.display='flex'}
+$('go').onclick=start;
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=1;if(k=='p'&&run)paused=!paused;if(k==' '||k.startsWith('arrow'))e.preventDefault()});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);
+const pad=$('pad'),knob=$('knob');let pid=null;
+function pj(t){const r=pad.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,R=r.width/2;let dx=(t.clientX-cx)/R,dy=(t.clientY-cy)/R;const m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m}joy.x=dx;joy.y=dy;knob.style.transform=`translate(${dx*R*.6}px,${dy*R*.6}px)`}
+pad.addEventListener('pointerdown',e=>{pid=e.pointerId;pad.setPointerCapture(pid);pj(e)});
+pad.addEventListener('pointermove',e=>{if(e.pointerId===pid)pj(e)});
+const rel=e=>{if(e.pointerId===pid){pid=null;joy.x=joy.y=0;knob.style.transform=''}};pad.addEventListener('pointerup',rel);pad.addEventListener('pointercancel',rel);
+const fb=$('fb');fb.addEventListener('pointerdown',e=>{e.preventDefault();fireT=true});fb.addEventListener('pointerup',()=>fireT=false);fb.addEventListener('pointercancel',()=>fireT=false);
+hud();loop();
+setTimeout(()=>{$('s').style.opacity=0;setTimeout(()=>$('s').remove(),800)},6200);
+</script></body></html>

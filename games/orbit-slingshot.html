@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Orbit Slingshot — Arcadeline</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#04030c;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+canvas{display:block;width:100vw;height:100vh;height:100dvh}
+#load{position:fixed;inset:0;z-index:10;background:radial-gradient(circle at 50% 45%,#0d1640,#04030c 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.4vh;transition:opacity .6s}
+#load .p{letter-spacing:.45em;font-size:clamp(12px,3.4vw,22px);color:#bfe9ff;opacity:0;animation:fi 1s .3s forwards}
+#load .t{font-weight:900;font-size:clamp(38px,12vw,110px);text-shadow:0 0 10px #3df2ff,0 0 30px #ff3df2;opacity:0;transform:scale(.3);animation:pop 1.2s 1.5s cubic-bezier(.2,1.6,.4,1) forwards}
+#load .g{font-size:clamp(13px,3.8vw,24px);color:#ff8bf0;opacity:0;animation:fi 1s 3s forwards}
+#tr{position:relative;width:min(70vw,420px);height:60px;opacity:0;animation:fi .5s 3.3s forwards;border-bottom:2px solid #3df2ff}
+#ball{position:absolute;bottom:2px;left:0;width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,#bfe9ff 60%,#7fb8ff);box-shadow:0 0 12px #bfe9ff;animation:roll 3.3s 3.5s ease-in forwards}
+@keyframes fi{to{opacity:1}}@keyframes pop{to{opacity:1;transform:scale(1)}}
+@keyframes roll{to{left:calc(100% - 48px);width:48px;height:48px;transform:rotate(720deg)}}
+#ui{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:2vh;background:rgba(4,3,12,.8);z-index:5;text-align:center;padding:6vw}
+#ui h1{font-size:clamp(30px,9vw,70px);color:#3df2ff;text-shadow:0 0 18px #3df2ff}
+#ui p{font-size:clamp(14px,3.8vw,20px);color:#cfe;line-height:1.5;max-width:560px}
+#ui button{font:inherit;font-size:clamp(16px,4.5vw,24px);padding:.7em 1.6em;border:2px solid #ff3df2;background:transparent;color:#fff;border-radius:40px;box-shadow:0 0 14px #ff3df2}
+#pb{position:fixed;top:calc(8px + env(safe-area-inset-top));right:10px;z-index:4;font:inherit;width:44px;height:44px;border-radius:50%;border:2px solid #3df2ff;background:rgba(0,0,0,.4);color:#fff}
+</style></head><body>
+<div id="load"><div class="p">LEONLINK PRESENTS</div><div class="t">ARCADELINE</div><div class="g">Start small. Roll big.</div><div id="tr"><div id="ball"></div></div></div>
+<canvas id="c"></canvas><button id="pb" aria-label="Pause">II</button>
+<div id="ui"><h1 id="uh">ORBIT SLINGSHOT</h1><p id="up"></p><button id="ub">PLAY</button></div>
+<script>
+const C=document.getElementById('c'),X=C.getContext('2d'),ui=document.getElementById('ui'),uh=document.getElementById('uh'),up=document.getElementById('up'),ub=document.getElementById('ub');
+let W,H,M,WW,WH;function rs(){const d=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;C.width=W*d;C.height=H*d;X.setTransform(d,0,0,d,0,0);M=Math.min(W,H);WW=W/M;WH=H/M}addEventListener('resize',rs);rs();
+// world units: 1 = shortest screen side
+const KEY='arcadeline_orbit_best';let best=+localStorage.getItem(KEY)||0;
+let lvl=1,score=0,shots=0,fuel=5,state='menu',P=[],G,S,pr=null,trail=[],aim={a:-.8,p:.5},drag=null,msg='',msgT=0,stars=[];
+for(let i=0;i<120;i++)stars.push([Math.random(),Math.random(),Math.random()*1.5+.4]);
+const R=(a,b)=>a+Math.random()*(b-a);
+function mk(){P=[];S={x:.1,y:WH-.12};G={x:WW-.12,y:R(.15,WH*.45),r:.05,y0:0,mv:0,t:0};G.y0=G.y;if(lvl>2&&Math.random()<.6)G.mv=R(.05,.12);
+ const n=Math.min(1+Math.ceil(lvl/2),6);let k=0;while(P.length<n&&k++<500){const p={x:R(.25,WW-.25),y:R(.12,WH-.12),r:R(.04,.08),h:R(0,360)};p.m=p.r*p.r*R(1,1.5);
+  if(Math.hypot(p.x-S.x,p.y-S.y)<.22||Math.hypot(p.x-G.x,p.y-G.y)<.18||P.some(q=>Math.hypot(p.x-q.x,p.y-q.y)<p.r+q.r+.08))continue;P.push(p)}
+ shots=0;pr=null;trail=[];say('LEVEL '+lvl,1.3)}
+function say(t,d){msg=t;msgT=d}
+function launch(){if(pr||state!=='play'||aim.p<.05)return;shots++;fuel--;const v=.35+aim.p*1.1;pr={x:S.x,y:S.y,vx:Math.cos(aim.a)*v,vy:Math.sin(aim.a)*v,t:0};trail=[]}
+function step(dt){if(G.mv){G.t+=dt;G.y=G.y0+Math.sin(G.t*1.3)*G.mv}if(msgT>0)msgT-=dt;
+ if(keys.ArrowLeft||keys.a)aim.a-=dt*1.5;if(keys.ArrowRight||keys.d)aim.a+=dt*1.5;if(keys.ArrowUp||keys.w)aim.p=Math.min(1,aim.p+dt*.6);if(keys.ArrowDown||keys.s)aim.p=Math.max(.06,aim.p-dt*.6);
+ if(!pr)return;for(let i=0;i<6;i++){const h=dt/6;let ax=0,ay=0;for(const p of P){const dx=p.x-pr.x,dy=p.y-pr.y,d2=dx*dx+dy*dy,d=Math.sqrt(d2);if(d<p.r+.008)return lose('CRASHED!');const f=.5*p.m/d2;ax+=f*dx/d;ay+=f*dy/d}
+  pr.vx+=ax*h;pr.vy+=ay*h;pr.x+=pr.vx*h;pr.y+=pr.vy*h}
+ pr.t+=dt;trail.push([pr.x,pr.y]);if(trail.length>200)trail.shift();
+ if(Math.hypot(G.x-pr.x,G.y-pr.y)<G.r+.012)return win();
+ if(pr.x<-.4||pr.x>WW+.4||pr.y<-.4||pr.y>WH+.4||pr.t>14)lose('LOST IN SPACE')}
+function lose(t){pr=null;say(t,1.1);if(fuel<=0)setTimeout(over,700)}
+function win(){const pts=Math.max(100,1000-(shots-1)*300)*lvl;score+=pts;fuel+=shots===1?3:2;fuel=Math.min(fuel,9);say('WARP! +'+pts,1.4);pr=null;lvl++;sv();setTimeout(()=>{if(state==='play')mk()},900)}
+function sv(){if(score>best){best=score;localStorage.setItem(KEY,best)}}
+function over(){if(state!=='play')return;state='over';sv();uh.textContent='OUT OF PROBES';up.innerHTML='Score '+score+' · Level '+lvl+'<br>Best '+best;ub.textContent='PLAY AGAIN';ui.style.display='flex'}
+function begin(){lvl=1;score=0;fuel=5;state='play';ui.style.display='none';mk()}
+function pause(){if(state==='play'){state='pause';uh.textContent='PAUSED';up.textContent='Score '+score;ub.textContent='RESUME';ui.style.display='flex'}else if(state==='pause'){state='play';ui.style.display='none'}}
+</script>
+<script>
+let keys={};
+ub.onclick=()=>{state==='pause'?pause():begin()};document.getElementById('pb').onclick=e=>{e.stopPropagation();pause()};
+addEventListener('keydown',e=>{keys[e.key]=1;if(e.key==='p'||e.key==='P')pause();if(e.key===' '||e.key==='Enter'){e.preventDefault();if(state==='play')launch();else if(state!=='pause'&&ui.style.display==='flex')begin()}if(e.key.startsWith('Arrow'))e.preventDefault()});
+addEventListener('keyup',e=>keys[e.key]=0);
+C.addEventListener('pointerdown',e=>{if(state!=='play'||pr)return;drag=1;aimAt(e)});
+C.addEventListener('pointermove',e=>{if(drag)aimAt(e)});
+addEventListener('pointerup',()=>{if(drag){drag=null;launch()}});
+// pull back like a slingshot: drag away from launch pad, release to fire opposite
+function aimAt(e){const sx=S.x*M,sy=S.y*M,dx=sx-e.clientX,dy=sy-e.clientY,d=Math.hypot(dx,dy);if(d<8){aim.p=0;return}aim.a=Math.atan2(dy,dx);aim.p=Math.min(1,d/(M*.35))}
+function preview(){if(pr||aim.p<.05)return;let x=S.x,y=S.y,v=.35+aim.p*1.1,vx=Math.cos(aim.a)*v,vy=Math.sin(aim.a)*v;X.fillStyle='rgba(255,255,255,.55)';
+ for(let i=0;i<40;i++){for(let j=0;j<4;j++){const h=1/240;let ax=0,ay=0;for(const p of P){const dx=p.x-x,dy=p.y-y,d2=dx*dx+dy*dy,d=Math.sqrt(d2);if(d<p.r)return;const f=.5*p.m/d2;ax+=f*dx/d;ay+=f*dy/d}vx+=ax*h;vy+=ay*h;x+=vx*h;y+=vy*h}
+  if(i%2==0){X.beginPath();X.arc(x*M,y*M,2,0,7);X.fill()}}}
+function draw(t){X.fillStyle='#04030c';X.fillRect(0,0,W,H);
+ for(const s of stars){X.fillStyle='rgba(200,230,255,'+(.35+.35*Math.sin(t/700+s[0]*60))+')';X.fillRect(s[0]*W,s[1]*H,s[2],s[2])}
+ if(state==='menu')return;
+ for(const p of P){const x=p.x*M,y=p.y*M,r=p.r*M;X.strokeStyle='hsla('+p.h+',100%,60%,.15)';X.lineWidth=1;for(let k=2;k<5;k++){X.beginPath();X.arc(x,y,r*k*.9,0,7);X.stroke()}
+  X.shadowColor='hsl('+p.h+',100%,60%)';X.shadowBlur=25;const g=X.createRadialGradient(x-r*.3,y-r*.3,r*.1,x,y,r);g.addColorStop(0,'hsl('+p.h+',100%,80%)');g.addColorStop(1,'hsl('+p.h+',90%,35%)');X.fillStyle=g;X.beginPath();X.arc(x,y,r,0,7);X.fill();X.shadowBlur=0}
+ const gx=G.x*M,gy=G.y*M,gr=G.r*M;X.save();X.translate(gx,gy);X.rotate(t/400);X.strokeStyle='#3df2ff';X.shadowColor='#3df2ff';X.shadowBlur=20;X.lineWidth=4;X.setLineDash([gr*.6,gr*.3]);X.beginPath();X.arc(0,0,gr,0,7);X.stroke();X.setLineDash([]);X.fillStyle='rgba(61,242,255,.25)';X.beginPath();X.arc(0,0,gr*.7,0,7);X.fill();X.restore();X.shadowBlur=0;
+ const sx=S.x*M,sy=S.y*M;X.strokeStyle='#ff3df2';X.lineWidth=3;X.beginPath();X.arc(sx,sy,M*.03,0,7);X.stroke();
+ if(!pr){preview();X.strokeStyle='#ff8bf0';X.lineWidth=3;X.beginPath();X.moveTo(sx,sy);X.lineTo(sx+Math.cos(aim.a)*M*.08*(.3+aim.p),sy+Math.sin(aim.a)*M*.08*(.3+aim.p));X.stroke()}
+ X.lineWidth=2;for(let i=1;i<trail.length;i++){X.strokeStyle='rgba(255,139,240,'+(i/trail.length)+')';X.beginPath();X.moveTo(trail[i-1][0]*M,trail[i-1][1]*M);X.lineTo(trail[i][0]*M,trail[i][1]*M);X.stroke()}
+ if(pr){X.fillStyle='#fff';X.shadowColor='#ff3df2';X.shadowBlur=16;X.beginPath();X.arc(pr.x*M,pr.y*M,M*.012,0,7);X.fill();X.shadowBlur=0}
+ const fs=Math.max(14,M*.04);X.font='700 '+fs+'px system-ui';X.fillStyle='#cfe';X.textAlign='left';X.fillText('SCORE '+score+'   LV '+lvl,12,fs+10);X.fillText('PROBES '+'●'.repeat(Math.max(0,fuel)),12,fs*2+16);X.textAlign='right';X.fillText('BEST '+best,W-64,fs+10);
+ if(msgT>0){X.textAlign='center';X.font='900 '+fs*2+'px system-ui';X.fillStyle='#fff';X.shadowColor='#3df2ff';X.shadowBlur=20;X.fillText(msg,W/2,H/2);X.shadowBlur=0}}
+let lt=0;function loop(t){const dt=Math.min(.033,(t-lt)/1000||0);lt=t;if(state==='play')step(dt);draw(t);requestAnimationFrame(loop)}requestAnimationFrame(loop);
+setTimeout(()=>{const l=document.getElementById('load');l.style.opacity=0;setTimeout(()=>l.remove(),600);up.innerHTML='Fling your probe through planets\' gravity to reach the spinning warp gate. Fewer shots = more points. Run out of probes and it\'s over.<br><br>Phone: drag back from the pink pad and let go.<br>Keys: ←/→ aim, ↑/↓ power, Space fire, P pause.';ui.style.display='flex'},7000);
+</script></body></html>

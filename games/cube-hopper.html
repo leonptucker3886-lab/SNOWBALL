@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Cube Hopper — Arcadeline</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#05010a;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+canvas{display:block;width:100vw;height:100vh;height:100dvh}
+#load{position:fixed;inset:0;z-index:10;background:radial-gradient(circle at 50% 45%,#2a0505,#05010a 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.5vh;transition:opacity .6s}
+#load .p{letter-spacing:.4em;font-size:clamp(12px,3.4vw,22px);color:#ffd6d6;opacity:0;animation:fi 1s .2s forwards}
+#load .t{font-weight:900;font-size:clamp(38px,12vw,110px);color:#ff2b2b;text-shadow:0 0 12px #ff2b2b,0 0 34px #f00;opacity:0;animation:fl 1.2s 1.6s forwards,sh .35s 1.6s 3}
+#load .g{font-size:clamp(13px,3.8vw,24px);color:#ffb347;opacity:0;animation:fi .8s 3s forwards;text-align:center;padding:0 5vw}
+#bar{width:min(70vw,420px);height:14px;border:2px solid #ff2b2b;border-radius:3px;overflow:hidden;opacity:0;animation:fi .5s 3.3s forwards}
+#bar i{display:block;height:100%;width:0;background:repeating-linear-gradient(90deg,#ffb347 0 8px,#7a4a00 8px 12px);animation:fill 3.1s 3.4s linear forwards}
+@keyframes fi{to{opacity:1}}@keyframes fill{to{width:100%}}
+@keyframes fl{0%{opacity:0}10%{opacity:1}20%{opacity:.2}30%{opacity:1}45%{opacity:.4}60%,100%{opacity:1}}
+@keyframes sh{0%,100%{transform:translate(0)}25%{transform:translate(-4px,2px)}75%{transform:translate(4px,-2px)}}
+#ui{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:2vh;background:rgba(5,1,10,.75);z-index:5;text-align:center;padding:5vw}
+#ui h1{font-size:clamp(32px,9vw,72px);color:#3df2ff;text-shadow:0 0 18px #3df2ff}
+#ui p{font-size:clamp(14px,3.8vw,20px);color:#cfe;line-height:1.5}
+#ui button{font:inherit;font-size:clamp(16px,4.5vw,24px);padding:.7em 1.6em;border:2px solid #ff3df2;background:transparent;color:#fff;border-radius:40px;box-shadow:0 0 14px #ff3df2}
+</style></head><body>
+<div id="load"><div class="p">LEONLINK PRESENTS</div><div class="t">ARCADELINE</div><div class="g">Lock and load. No continues.</div><div id="bar"><i></i></div></div>
+<canvas id="c"></canvas>
+<div id="ui"><h1 id="uh">CUBE HOPPER</h1><p id="up">Hop diagonally and turn every cube top neon.<br>Dodge the red balls and don't jump off the pyramid!<br>Phone: tap toward where you want to hop (up-left, up-right, down-left, down-right of your hopper)<br>Keyboard: Up = up-right, Left = up-left, Down = down-left, Right = down-right (or WASD), P = pause</p><button id="ub">START</button></div>
+<script>
+const cv=document.getElementById('c'),x=cv.getContext('2d'),ui=document.getElementById('ui'),uh=document.getElementById('uh'),up=document.getElementById('up'),ub=document.getElementById('ub');
+let W,H,cw,ch,top0;const N=7;
+function rs(){const d=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;cv.width=W*d;cv.height=H*d;x.setTransform(d,0,0,d,0,0);cw=Math.min(W*.9/N,H*.75/(N*.75+.8));ch=cw;top0=(H-N*.75*ch)/2}
+addEventListener('resize',rs);rs();
+let st='load',paused=false,P,balls,lit=null,sc=0,hi=+(localStorage.chHi||0),lives,lvl,spawnT,last=0,flash=0;
+const COLS=[['#3df2ff','#ff3df2'],['#ffe23d','#3dff8a'],['#ff7a3d','#7a5cff'],['#3dff8a','#ff2b6b']];
+function pos(r,c){return{x:W/2+(c-r/2)*cw,y:top0+r*ch*.75}}
+function home(){P={r:0,c:0,fr:0,fc:0,t:1,dead:0}}
+function newLevel(){lit=[];for(let r=0;r<N;r++)lit.push(Array(r+1).fill(false));home();lit[0][0]=true;balls=[];spawnT=2}
+function reset(){sc=0;lives=3;lvl=1;newLevel()}
+function move(dr,dc){if(st!=='play'||paused||P.t<1||P.dead)return;P.fr=P.r;P.fc=P.c;P.r+=dr;P.c+=dc;P.t=0}
+function onPyr(r,c){return r>=0&&r<N&&c>=0&&c<=r}
+function land(){if(!onPyr(P.r,P.c)){P.dead=1.2;return}
+ if(!lit[P.r][P.c]){lit[P.r][P.c]=true;sc+=25}
+ if(lit.every(row=>row.every(v=>v))){sc+=500+lvl*100;lvl++;flash=1;newLevel()}}
+function die(){lives--;if(lives<=0)over();else{home();balls=[];spawnT=1.5}}
+function over(){st='over';if(sc>hi){hi=sc;localStorage.chHi=hi}uh.textContent='GAME OVER';up.innerHTML='Score '+sc+'<br>Best '+hi;ub.textContent='PLAY AGAIN';ui.style.display='flex'}
+function start(){reset();st='play';paused=false;ui.style.display='none';last=performance.now()}
+ub.onclick=start;
+const KM={ArrowUp:[-1,0],w:[-1,0],W:[-1,0],ArrowLeft:[-1,-1],a:[-1,-1],A:[-1,-1],ArrowDown:[1,0],s:[1,0],S:[1,0],ArrowRight:[1,1],d:[1,1],D:[1,1]};
+addEventListener('keydown',e=>{if(KM[e.key]){e.preventDefault();move(...KM[e.key])}else if(e.key==='p'||e.key==='P'){if(st==='play')paused=!paused}else if((e.key===' '||e.key==='Enter')&&(st==='menu'||st==='over'))start()});
+cv.addEventListener('pointerdown',e=>{if(st!=='play')return;if(paused){paused=false;return}const p=pos(P.r,P.c);const L=e.clientX<p.x,U=e.clientY<p.y;if(U&&L)move(-1,-1);else if(U)move(-1,0);else if(L)move(1,0);else move(1,1)});
+function cube(r,c,on){const p=pos(r,c),w=cw/2,h=ch*.25,d=ch*.45,cl=COLS[(lvl-1)%COLS.length];
+ x.beginPath();x.moveTo(p.x-w,p.y);x.lineTo(p.x,p.y+h);x.lineTo(p.x,p.y+h+d);x.lineTo(p.x-w,p.y+d);x.closePath();x.fillStyle='#1a0f3a';x.fill();
+ x.beginPath();x.moveTo(p.x+w,p.y);x.lineTo(p.x,p.y+h);x.lineTo(p.x,p.y+h+d);x.lineTo(p.x+w,p.y+d);x.closePath();x.fillStyle='#2c1a5e';x.fill();
+ x.beginPath();x.moveTo(p.x,p.y-h);x.lineTo(p.x+w,p.y);x.lineTo(p.x,p.y+h);x.lineTo(p.x-w,p.y);x.closePath();x.fillStyle=on?cl[1]:cl[0];x.shadowColor=x.fillStyle;x.shadowBlur=on?14:3;x.fill();x.shadowBlur=0;x.strokeStyle='rgba(255,255,255,.3)';x.lineWidth=1;x.stroke()}
+function jp(fr,fc,r,c,t){const a=pos(fr,fc),b=pos(r,c);return{x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t-Math.sin(Math.PI*t)*ch*.45}}
+function update(dt){if(flash>0)flash-=dt;
+ if(P.dead){P.dead-=dt;if(P.dead<=0)die();return}
+ if(P.t<1){P.t=Math.min(1,P.t+dt/.22);if(P.t>=1)land();if(P.dead)return}
+ spawnT-=dt;if(spawnT<=0){balls.push({fr:-1,fc:0,tr:0,tc:0,t:0});spawnT=Math.max(.9,3.2-lvl*.3)+Math.random()}
+ const bs=Math.max(.32,.75-lvl*.06);
+ for(const b of balls){b.t+=dt/bs;if(b.t>=1){b.fr=b.tr;b.fc=b.tc;b.t=0;if(b.fr>=N-1){b.gone=1;continue}b.tr=b.fr+1;b.tc=b.fc+(Math.random()<.5?0:1)}}
+ balls=balls.filter(b=>!b.gone);
+ const pr=P.t<.5?P.fr:P.r,pc=P.t<.5?P.fc:P.c;
+ for(const b of balls){const br=b.t<.5?b.fr:b.tr,bc=b.t<.5?b.fc:b.tc;if(br>=0&&br===pr&&bc===pc){P.dead=1;P.t=1;P.r=pr;P.c=pc;break}}}
+function draw(now){x.fillStyle='#05010a';x.fillRect(0,0,W,H);if(!lit)return;
+ for(let r=0;r<N;r++)for(let c=0;c<=r;c++)cube(r,c,lit[r][c]);
+ for(const b of balls){const p=b.fr<0?{x:pos(0,0).x,y:pos(0,0).y-ch*2*(1-b.t)}:jp(b.fr,b.fc,b.tr,b.tc,b.t);x.beginPath();x.arc(p.x,p.y-ch*.18,cw*.16,0,7);x.fillStyle='#ff2b2b';x.shadowColor='#f00';x.shadowBlur=16;x.fill();x.shadowBlur=0}
+ let pp=P.t<1?jp(P.fr,P.fc,P.r,P.c,P.t):pos(P.r,P.c);if(P.dead&&!onPyr(P.r,P.c))pp={x:pp.x,y:pp.y+(1.2-P.dead)*H*.7};
+ if(!(P.dead&&Math.floor(now/80)%2)){x.beginPath();x.arc(pp.x,pp.y-ch*.22,cw*.19,0,7);x.fillStyle='#ffb347';x.shadowColor='#ffb347';x.shadowBlur=18;x.fill();x.shadowBlur=0;x.fillStyle='#05010a';x.beginPath();x.arc(pp.x+cw*.06,pp.y-ch*.27,cw*.045,0,7);x.fill()}
+ const fs=Math.max(15,Math.min(26,cw*.3));x.font='bold '+fs+'px system-ui';x.fillStyle='#fff';x.textAlign='left';x.fillText('SCORE '+sc,14,fs+12);x.textAlign='right';x.fillText('LVL '+lvl+'  LIVES '+lives,W-14,fs+12);x.textAlign='center';x.fillStyle='#cfe';x.fillText('BEST '+hi,W/2,fs*2+20);
+ if(flash>0){x.fillStyle='rgba(255,255,255,'+flash*.4+')';x.fillRect(0,0,W,H)}
+ if(paused){x.fillStyle='rgba(5,1,10,.7)';x.fillRect(0,0,W,H);x.fillStyle='#3df2ff';x.font='bold 48px system-ui';x.fillText('PAUSED',W/2,H/2)}}
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(st==='play'&&!paused)update(dt);draw(now);requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+setTimeout(()=>{const l=document.getElementById('load');l.style.opacity=0;setTimeout(()=>{l.style.display='none';st='menu';ui.style.display='flex'},600)},7000);
+</script></body></html>

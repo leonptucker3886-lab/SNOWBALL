@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Light Cycles — Arcadeline</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%;background:#05010f;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden;touch-action:none;user-select:none}
+#load{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#1a0b3d,#05010f);z-index:10;transition:opacity .6s}
+#load .pre{letter-spacing:.4em;font-size:clamp(12px,3.5vw,20px);color:#9ef;opacity:0;animation:fi 1s .3s forwards}
+#load h1{font-size:clamp(36px,11vw,90px);color:#ff3df0;text-shadow:0 0 12px #ff3df0,0 0 30px #7a2bff;margin:.3em 0 .1em;opacity:0;animation:pop .6s 1.6s forwards}
+#load .tag{font-size:clamp(14px,4vw,24px);color:#7ff;opacity:0;animation:fi .8s 2.6s forwards}
+#bar{width:min(70vw,420px);height:10px;border:1px solid #7ff;border-radius:6px;margin-top:2em;overflow:hidden}#bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7ff,#ff3df0);animation:fill 6.2s .3s linear forwards}
+#ball{position:absolute;bottom:18%;left:-60px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 0 18px #9ef;animation:roll 6.5s .3s linear forwards}
+@keyframes fi{to{opacity:1}}@keyframes pop{0%{opacity:0;transform:scale(.4)}80%{transform:scale(1.1)}to{opacity:1;transform:scale(1)}}@keyframes fill{to{width:100%}}
+@keyframes roll{to{left:calc(100% + 60px);width:70px;height:70px;transform:rotate(720deg)}}
+</style></head><body>
+<div id="load"><div class="pre">LEONLINK PRESENTS</div><h1>ARCADELINE</h1><div class="tag">Start small. Roll big.</div><div id="bar"><i></i></div><div id="ball"></div></div>
+<style>#hud{position:fixed;top:10px;left:0;right:0;display:flex;justify-content:center;gap:24px;font-weight:700;color:#7ff;font-size:clamp(16px,4.5vw,24px);z-index:2;pointer-events:none}
+canvas{display:block;width:100vw;height:100vh}
+#msg{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#05010fcc;text-align:center;gap:12px;padding:20px;z-index:3}
+#msg h2{color:#ff3df0;font-size:clamp(28px,8vw,52px);text-shadow:0 0 12px #ff3df0}#msg p{color:#cdf;font-size:clamp(13px,3.6vw,18px)}
+button{font:inherit;font-weight:700;padding:12px 28px;border-radius:30px;border:2px solid #7ff;background:#130838;color:#7ff;font-size:18px}</style>
+<div id="hud"><span>Round <b id="rd">1</b></span><span>Wins <b id="sc">0</b></span><span>Best <b id="hi">0</b></span></div><canvas id="c"></canvas>
+<div id="msg"><h2 id="mt">LIGHT CYCLES</h2><p id="mp">Ride your cyan cycle and trap the CPU riders in your light trail.<br>Swipe or use arrows / WASD to turn. P pauses. Last rider alive wins.</p><button id="go">PLAY</button></div>
+<script>
+setTimeout(()=>{const l=document.getElementById('load');l.style.opacity=0;setTimeout(()=>l.remove(),600)},7000);
+const c=document.getElementById('c'),x=c.getContext('2d'),msg=document.getElementById('msg');let W,H,D,G=12,cols,rows,ox,oy;
+function rs(){D=devicePixelRatio||1;W=innerWidth;H=innerHeight;c.width=W*D;c.height=H*D;x.setTransform(D,0,0,D,0,0);G=Math.max(8,Math.floor(Math.min(W,H)/45));cols=Math.floor(W/G);rows=Math.floor((H-50)/G);ox=(W-cols*G)/2;oy=50}
+addEventListener('resize',rs);rs();
+let best=+localStorage.getItem('cyclesBest')||0;hi.textContent=best;
+let grid,bikes,run=false,pause=false,wins=0,round=1,acc=0,last=0;
+const DIRS=[[1,0],[0,1],[-1,0],[0,-1]],COL=['#4ff','#ff3df0','#ff0','#f84'];
+function start(nw){if(nw){wins=0;round=1}rs();grid=new Uint8Array(cols*rows);const n=Math.min(4,1+Math.ceil(round/2));
+const sp=[[Math.floor(cols*.2),Math.floor(rows/2),0],[Math.floor(cols*.8),Math.floor(rows/2),2],[Math.floor(cols/2),Math.floor(rows*.2),1],[Math.floor(cols/2),Math.floor(rows*.8),3]];
+bikes=[];for(let i=0;i<=Math.min(n,3);i++){const s=sp[i];bikes.push({x:s[0],y:s[1],d:s[2],nd:s[2],alive:true,c:COL[i],ai:i>0})}
+bikes.forEach((b,i)=>grid[b.y*cols+b.x]=i+1);rd.textContent=round;sc.textContent=wins;run=true;pause=false;msg.style.display='none'}
+function free(X,Y){return X>=0&&Y>=0&&X<cols&&Y<rows&&!grid[Y*cols+X]}
+function space(X,Y,lim){let seen=new Set(),q=[[X,Y]],n=0;while(q.length&&n<lim){const[a,b]=q.pop();const k=b*cols+a;if(seen.has(k)||!free(a,b))continue;seen.add(k);n++;for(const d of DIRS)q.push([a+d[0],b+d[1]])}return n}
+function think(b){const opts=[b.d,(b.d+1)%4,(b.d+3)%4];let bestS=-1,bd=b.d;for(const d of opts){const nx=b.x+DIRS[d][0],ny=b.y+DIRS[d][1];if(!free(nx,ny))continue;let s=space(nx,ny,150)+(d===b.d?3:0)+Math.random()*(6-Math.min(5,round));if(s>bestS){bestS=s;bd=d}}b.nd=bd}
+function step(){bikes.forEach(b=>{if(!b.alive)return;if(b.ai)think(b);if((b.nd+2)%4!==b.d)b.d=b.nd});
+const moves=bikes.map(b=>b.alive?[b.x+DIRS[b.d][0],b.y+DIRS[b.d][1]]:null);
+bikes.forEach((b,i)=>{if(!b.alive)return;const[m,n]=moves[i];let dead=!free(m,n);bikes.forEach((o,j)=>{if(j!==i&&o.alive&&moves[j][0]===m&&moves[j][1]===n)dead=true});if(dead)b.alive=false});
+bikes.forEach((b,i)=>{if(!b.alive)return;b.x=moves[i][0];b.y=moves[i][1];grid[b.y*cols+b.x]=i+1});
+const me=bikes[0],al=bikes.filter(b=>b.alive).length;
+if(!me.alive)end(false);else if(al===1)end(true)}
+function end(won){run=false;if(won){wins++;round++;if(wins>best){best=wins;localStorage.setItem('cyclesBest',best);hi.textContent=best}}
+setTimeout(()=>{mt.textContent=won?'ROUND WON':'DEREZZED';mp.innerHTML=won?'Wins in a row: '+wins+'<br>Next round adds tougher riders.':'Wins in a row: '+wins+'<br>Best: '+best;go.textContent=won?'NEXT ROUND':'AGAIN';go.dataset.nw=won?'':'1';msg.style.display='flex'},500)}
+function draw(){x.fillStyle='#05010f';x.fillRect(0,0,W,H);x.strokeStyle='#1a0b3d';x.lineWidth=1;x.beginPath();for(let i=0;i<=cols;i+=4){x.moveTo(ox+i*G,oy);x.lineTo(ox+i*G,oy+rows*G)}for(let j=0;j<=rows;j+=4){x.moveTo(ox,oy+j*G);x.lineTo(ox+cols*G,oy+j*G)}x.stroke();
+x.strokeStyle='#7ff';x.strokeRect(ox,oy,cols*G,rows*G);if(!grid)return;
+for(let k=0;k<grid.length;k++){const v=grid[k];if(!v)continue;x.fillStyle=COL[v-1];x.globalAlpha=bikes[v-1].alive?.85:.3;x.fillRect(ox+(k%cols)*G+1,oy+Math.floor(k/cols)*G+1,G-2,G-2)}x.globalAlpha=1;
+bikes.forEach(b=>{if(!b.alive)return;x.shadowColor=b.c;x.shadowBlur=16;x.fillStyle='#fff';x.fillRect(ox+b.x*G-1,oy+b.y*G-1,G+2,G+2)});x.shadowBlur=0;
+if(pause){x.fillStyle='#fff';x.font='bold 32px system-ui';x.textAlign='center';x.fillText('PAUSED',W/2,H/2)}}
+function loop(t){const dt=t-last;last=t;if(run&&!pause){acc+=dt;const iv=Math.max(45,85-round*4);while(acc>iv){acc-=iv;if(run)step()}}else acc=0;draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);
+function turn(d){if(run&&bikes)bikes[0].nd=d}
+go.onclick=e=>{e.stopPropagation();if(!document.getElementById('load'))start(!!go.dataset.nw||!grid)};go.dataset.nw='1';
+addEventListener('keydown',e=>{const k={ArrowRight:0,KeyD:0,ArrowDown:1,KeyS:1,ArrowLeft:2,KeyA:2,ArrowUp:3,KeyW:3}[e.code];
+if(k!==undefined){e.preventDefault();turn(k)}else if(e.code==='KeyP'&&run)pause=!pause;else if((e.code==='Space'||e.code==='Enter')&&!run&&!document.getElementById('load')){e.preventDefault();start(!!go.dataset.nw)}});
+let sx,sy;c.addEventListener('pointerdown',e=>{e.preventDefault();sx=e.clientX;sy=e.clientY});
+c.addEventListener('pointerup',e=>{if(sx==null)return;const dx=e.clientX-sx,dy=e.clientY-sy;sx=null;if(Math.max(Math.abs(dx),Math.abs(dy))<20){if(run&&bikes){const b=bikes[0],px=ox+b.x*G,py=oy+b.y*G;if(b.d%2===0)turn(e.clientY<py?3:1);else turn(e.clientX<px?2:0)}return}
+if(Math.abs(dx)>Math.abs(dy))turn(dx>0?0:2);else turn(dy>0?1:3)});
+</script></body></html>

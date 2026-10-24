@@ -1,0 +1,86 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"><title>Bubble Pop — Arcadeline</title>
+<style>
+html,body{margin:0;height:100%;background:#05060f;overflow:hidden;font-family:"Courier New",monospace;color:#fff;touch-action:none;-webkit-user-select:none;user-select:none}
+#s{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .8s;z-index:10;background:#05060f}
+.p{letter-spacing:.5em;font-size:2.2vmin;color:#9fdcff;opacity:0;animation:f 1s .3s forwards}
+h1{font-size:12vmin;margin:.3em 0;color:#fff;text-shadow:0 0 10px #7fd8ff,0 0 30px #ff3bd4;opacity:0;transform:scale(.3);animation:r 1.2s 1.5s cubic-bezier(.2,1.6,.4,1) forwards}
+.t{font-size:3vmin;color:#ff8bf0;opacity:0;animation:f 1s 3s forwards}
+.b{width:50vmin;height:2.4vmin;border:2px solid #7fd8ff;border-radius:2vmin;margin-top:5vmin;overflow:hidden;box-shadow:0 0 12px #7fd8ff}
+.b i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7fd8ff,#ff3bd4);animation:g 5.6s .6s linear forwards}
+.ball{position:absolute;bottom:8vmin;left:-10vmin;width:4vmin;height:4vmin;border-radius:50%;background:#eaf8ff;box-shadow:0 0 15px #fff;animation:roll 6.2s .3s ease-in forwards}
+@keyframes f{to{opacity:1}}@keyframes r{to{opacity:1;transform:scale(1)}}@keyframes g{to{width:100%}}
+@keyframes roll{to{left:110vw;width:14vmin;height:14vmin;transform:rotate(1080deg)}}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="s"><div class="p">LEONLINK PRESENTS</div><h1>ARCADELINE</h1><div class="t">Start small. Roll big.</div><div class="b"><i></i></div><div class="ball"></div></div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');let W,H,D,S,OX,OY;
+function rs(){D=devicePixelRatio||1;W=innerWidth;H=innerHeight;c.width=W*D;c.height=H*D;S=Math.min(W/360,H/640);OX=(W-360*S)/2;OY=(H-640*S)/2}addEventListener('resize',rs);rs();
+const R=18,COLS=10,RH=R*Math.sqrt(3),COL=['#ff3bd4','#7fd8ff','#ffe94a','#5dff8a','#ff7a3b','#b47bff'],SX=180,SY=590,DEAD=545;
+let st='load',grid,top0=40,shot,cur=0,nxt=0,ang=-Math.PI/2,score,level,shots,best=+localStorage.bubblePopBest||0,pops=[],t0=0,last=performance.now(),rowOff=0;
+const K={l:0,r:0};
+function per(){return Math.max(4,8-level)}
+function ncols(r){return r%2?COLS-1:COLS}
+function pos(r,q){return{x:R+q*2*R+(r%2?R:0),y:top0+R+r*RH}}
+function ncol(){return Math.min(COL.length,3+Math.floor(level/2))}
+function rnd(){const s=new Set();for(const row of grid)for(const v of row)if(v>=0)s.add(v);const u=[...s];return u.length?u[Math.random()*u.length|0]:Math.random()*ncol()|0}
+function startLevel(){top0=40;grid=[];for(let r=0;r<5+Math.min(level,4);r++){grid.push([]);for(let q=0;q<ncols(r);q++)grid[r].push(Math.random()*ncol()|0)}shots=0;cur=rnd();nxt=rnd();shot=null}
+function reset(){score=0;level=1;startLevel()}
+function get(r,q){return r>=0&&r<grid.length&&q>=0&&q<ncols(r)?grid[r][q]:-1}
+function nb(r,q){const d=r%2?[[0,-1],[0,1],[-1,0],[-1,1],[1,0],[1,1]]:[[0,-1],[0,1],[-1,-1],[-1,0],[1,-1],[1,0]];return d.map(a=>[r+a[0],q+a[1]])}
+function ensure(r){while(grid.length<=r)grid.push(new Array(ncols(grid.length)).fill(-1))}
+function fire(){if(st!='play'||shot)return;shot={x:SX,y:SY,vx:Math.cos(ang)*620,vy:Math.sin(ang)*620,c:cur};cur=nxt;nxt=rnd()}
+function snap(b){let bd=1e9,br=0,bq=0;const r0=Math.max(0,Math.round((b.y-top0-R)/RH));
+ for(let r=Math.max(0,r0-1);r<=r0+1;r++)for(let q=0;q<ncols(r);q++){if(get(r,q)>=0)continue;const p=pos(r,q),d=(p.x-b.x)**2+(p.y-b.y)**2;if(d<bd){bd=d;br=r;bq=q}}
+ ensure(br);grid[br][bq]=b.c;
+ const same=[[br,bq]],seen=new Set([br+','+bq]);
+ for(let i=0;i<same.length;i++)for(const [r,q] of nb(...same[i])){const k=r+','+q;if(!seen.has(k)&&get(r,q)==b.c){seen.add(k);same.push([r,q])}}
+ if(same.length>=3){for(const [r,q] of same){pops.push({...pos(r,q),c:grid[r][q],t:0});grid[r][q]=-1}score+=same.length*10;
+  const keep=new Set(),qq=[];for(let q=0;q<ncols(0);q++)if(get(0,q)>=0){keep.add('0,'+q);qq.push([0,q])}
+  for(let i=0;i<qq.length;i++)for(const [r,q] of nb(...qq[i])){const k=r+','+q;if(!keep.has(k)&&get(r,q)>=0){keep.add(k);qq.push([r,q])}}
+  let f=0;for(let r=0;r<grid.length;r++)for(let q=0;q<ncols(r);q++)if(grid[r][q]>=0&&!keep.has(r+','+q)){pops.push({...pos(r,q),c:grid[r][q],t:0,fall:1});grid[r][q]=-1;f++}
+  score+=f*f*20;if(navigator.vibrate)navigator.vibrate(30)}
+ while(grid.length&&grid[grid.length-1].every(v=>v<0))grid.pop();
+ if(!grid.length){score+=500*level;level++;startLevel();return}
+ shots++;if(shots%per()==0)top0+=RH;
+ if(lowest()>DEAD-R)over()}
+function lowest(){let m=0;for(let r=0;r<grid.length;r++)if(grid[r].some(v=>v>=0))m=pos(r,0).y;return m}
+function over(){st='over';t0=performance.now();if(score>best){best=score;localStorage.bubblePopBest=best}}
+function step(dt){if(K.l)ang-=1.8*dt;if(K.r)ang+=1.8*dt;ang=Math.max(-Math.PI+.12,Math.min(-.12,ang));
+ if(shot){for(let i=0;i<4&&shot;i++){shot.x+=shot.vx*dt/4;shot.y+=shot.vy*dt/4;if(shot.x<R){shot.x=R;shot.vx*=-1}if(shot.x>360-R){shot.x=360-R;shot.vx*=-1}
+  let hit=shot.y<=top0+R;
+  for(let r=0;r<grid.length&&!hit;r++)for(let q=0;q<ncols(r);q++){if(grid[r][q]<0)continue;const p=pos(r,q);if((p.x-shot.x)**2+(p.y-shot.y)**2<(2*R-4)**2){hit=true;break}}
+  if(hit){const b=shot;shot=null;snap(b)}}}
+ for(const p of pops){p.t+=dt;if(p.fall)p.y+=1200*dt*p.t}pops=pops.filter(p=>p.t<.6)}
+function ball(px,py,col,r=R-1,a=1){x.globalAlpha=Math.max(0,a);x.shadowColor=col;x.shadowBlur=12;x.fillStyle=col;x.beginPath();x.arc(px,py,r,0,7);x.fill();x.shadowBlur=0;x.fillStyle='rgba(255,255,255,.55)';x.beginPath();x.arc(px-r*.35,py-r*.35,r*.3,0,7);x.fill();x.globalAlpha=1}
+function draw(){x.setTransform(D,0,0,D,0,0);x.fillStyle='#05060f';x.fillRect(0,0,W,H);x.setTransform(D*S,0,0,D*S,OX*D,OY*D);
+ x.fillStyle='#0a0c22';x.fillRect(0,0,360,640);x.fillStyle='#ff3bd4';x.shadowColor='#ff3bd4';x.shadowBlur=10;x.fillRect(0,top0-4,360,4);x.shadowBlur=0;
+ x.strokeStyle='#ff3b5c88';x.setLineDash([6,6]);x.beginPath();x.moveTo(0,DEAD);x.lineTo(360,DEAD);x.stroke();x.setLineDash([]);
+ for(let r=0;r<grid.length;r++)for(let q=0;q<ncols(r);q++)if(grid[r][q]>=0){const p=pos(r,q);ball(p.x,p.y,COL[grid[r][q]])}
+ for(const p of pops)ball(p.x,p.y,COL[p.c],(R-1)*(p.fall?1:1+p.t),1-p.t/.6);
+ if(st=='play'||st=='pause'){x.strokeStyle='#ffffff66';x.setLineDash([4,8]);x.beginPath();let px=SX,py=SY,vx=Math.cos(ang),vy=Math.sin(ang);x.moveTo(px,py);
+  for(let i=0;i<70;i++){px+=vx*8;py+=vy*8;if(px<R||px>360-R)vx*=-1;if(py<top0+R)break;x.lineTo(px,py)}x.stroke();x.setLineDash([]);
+  x.strokeStyle='#7fd8ff';x.lineWidth=6;x.beginPath();x.moveTo(SX,SY);x.lineTo(SX+Math.cos(ang)*40,SY+Math.sin(ang)*40);x.stroke();x.lineWidth=1}
+ ball(SX,SY,COL[cur]);ball(250,615,COL[nxt],11);x.fillStyle='#9fdcff';x.font='11px Courier New';x.textAlign='center';x.fillText('NEXT',250,598);
+ if(shot)ball(shot.x,shot.y,COL[shot.c]);
+ x.font='bold 14px Courier New';x.textAlign='left';x.fillStyle='#fff';x.fillText('SCORE '+score,6,24);x.textAlign='right';x.fillText('LV '+level+'  BEST '+best,354,24);
+ x.textAlign='left';x.font='11px Courier New';x.fillStyle='#ff8bf0';x.fillText('Ceiling drops in '+(per()-shots%per()),6,625);
+ x.textAlign='center';x.fillStyle='#fff';const t=(s,f,y)=>{x.font=f+'px Courier New';x.fillText(s,180,y)};
+ if(st=='ready'){x.fillStyle='#05060fdd';x.fillRect(0,200,360,230);x.fillStyle='#fff';t('BUBBLE POP','bold 32',250);t('Match 3+ of a colour to pop them.',13,290);t('Clear the board before the ceiling drops.',13,310);t('Phone: drag to aim, let go to fire',12,345);t('Keys: Left/Right aim, Space fire, P pause',12,365);t('Tap or press Space to start',15,405)}
+ if(st=='pause')t('PAUSED','bold 32',330);
+ if(st=='over'){x.fillStyle='#05060fdd';x.fillRect(0,230,360,180);x.fillStyle='#fff';t('GAME OVER','bold 32',280);t('Score '+score+'  Level '+level+'  Best '+best,14,320);t('Tap or press Space to play again',14,370)}}
+function act(){if(st=='ready'){st='play';return true}if(st=='over'){if(performance.now()-t0>700){reset();st='play'}return true}return false}
+addEventListener('keydown',e=>{const k=e.key;if(k=='ArrowLeft'||k=='a'||k=='A')K.l=1;if(k=='ArrowRight'||k=='d'||k=='D')K.r=1;
+ if(k==' '||k=='ArrowUp'||k=='w'||k=='W'){e.preventDefault();if(!act())fire()}
+ if((k=='p'||k=='P')&&(st=='play'||st=='pause'))st=st=='play'?'pause':'play'});
+addEventListener('keyup',e=>{const k=e.key;if(k=='ArrowLeft'||k=='a'||k=='A')K.l=0;if(k=='ArrowRight'||k=='d'||k=='D')K.r=0});
+let aiming=false;function aimAt(e){const gx=(e.clientX-OX)/S,gy=(e.clientY-OY)/S;const a=Math.atan2(gy-SY,gx-SX);ang=Math.max(-Math.PI+.12,Math.min(-.12,a>0?(gx<SX?-Math.PI:0):a))}
+c.addEventListener('pointerdown',e=>{e.preventDefault();if(act())return;if(st!='play')return;aiming=true;aimAt(e)});
+c.addEventListener('pointermove',e=>{if(aiming)aimAt(e)});
+c.addEventListener('pointerup',e=>{if(aiming){aiming=false;aimAt(e);fire()}});
+c.addEventListener('pointercancel',()=>aiming=false);
+reset();
+function loop(n){const dt=Math.min(.05,(n-last)/1000);last=n;if(st=='play')step(dt);draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);
+setTimeout(()=>{const s=document.getElementById('s');s.style.opacity=0;setTimeout(()=>{s.remove();st='ready'},800)},7000);
+</script></body></html>

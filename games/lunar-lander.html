@@ -1,0 +1,67 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Lunar Lander — Arcadeline</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%;background:#05010f;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden;touch-action:none;user-select:none}
+#load{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#1a0b3d,#05010f);z-index:10;transition:opacity .6s}
+#load .pre{letter-spacing:.4em;font-size:clamp(12px,3.5vw,20px);color:#9ef;opacity:0;animation:fi 1s .3s forwards}
+#load h1{font-size:clamp(36px,11vw,90px);color:#ff3df0;text-shadow:0 0 12px #ff3df0,0 0 30px #7a2bff;margin:.3em 0 .1em;opacity:0;animation:pop .6s 1.6s forwards}
+#load .tag{font-size:clamp(14px,4vw,24px);color:#7ff;opacity:0;animation:fi .8s 2.6s forwards}
+#bar{width:min(70vw,420px);height:10px;border:1px solid #7ff;border-radius:6px;margin-top:2em;overflow:hidden}#bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7ff,#ff3df0);animation:fill 6.2s .3s linear forwards}
+#ball{position:absolute;bottom:18%;left:-60px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 0 18px #9ef;animation:roll 6.5s .3s linear forwards}
+@keyframes fi{to{opacity:1}}@keyframes pop{0%{opacity:0;transform:scale(.4)}80%{transform:scale(1.1)}to{opacity:1;transform:scale(1)}}@keyframes fill{to{width:100%}}
+@keyframes roll{to{left:calc(100% + 60px);width:70px;height:70px;transform:rotate(720deg)}}
+</style></head><body>
+<div id="load"><div class="pre">LEONLINK PRESENTS</div><h1>ARCADELINE</h1><div class="tag">Start small. Roll big.</div><div id="bar"><i></i></div><div id="ball"></div></div>
+<style>canvas{display:block}</style>
+<canvas id="c"></canvas>
+<div id="hud" style="position:fixed;top:8px;left:0;right:0;text-align:center;font:bold 15px system-ui;color:#7ff;text-shadow:0 0 6px #7ff;pointer-events:none;z-index:2"></div>
+<div style="position:fixed;bottom:0;left:0;right:0;height:20%;display:flex;z-index:3">
+<div id="bl" style="flex:1;border-top:1px solid #7ff4;display:flex;align-items:center;justify-content:center;color:#7ff8;font:28px system-ui">&#x27F2;</div>
+<div id="bt" style="flex:1.4;border-top:1px solid #f3f4;display:flex;align-items:center;justify-content:center;color:#f3f9;font:bold 20px system-ui">THRUST</div>
+<div id="br" style="flex:1;border-top:1px solid #7ff4;display:flex;align-items:center;justify-content:center;color:#7ff8;font:28px system-ui">&#x27F3;</div></div>
+<script>
+let started=false,paused=false;
+setTimeout(()=>{const l=document.getElementById('load');l.style.opacity=0;setTimeout(()=>l.remove(),600);started=true},7000);
+const c=document.getElementById('c'),x=c.getContext('2d'),hud=document.getElementById('hud');
+let W,H,ter=null,pads,s,fuel,score=0,level=1,lives=3,state='fly',msg='',msgT=0,parts=[],stars=[];
+let best=+localStorage.getItem('lunarlander_best')||0;
+function rs(){W=c.width=innerWidth;H=c.height=innerHeight*0.8;if(ter)mkTer()}
+const k={},tb={l:0,r:0,t:0};
+addEventListener('keydown',e=>{k[e.code]=1;if(['Space','ArrowUp','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();if(e.code=='KeyP')paused=!paused;if(msgT>.5&&(e.code=='Enter'||e.code=='Space'))next()});
+addEventListener('keyup',e=>k[e.code]=0);
+function bind(id,f){const el=document.getElementById(id);el.addEventListener('touchstart',e=>{e.preventDefault();f(1)},{passive:false});el.addEventListener('touchend',e=>{e.preventDefault();f(0)},{passive:false});el.addEventListener('mousedown',()=>f(1));el.addEventListener('mouseup',()=>f(0));el.addEventListener('mouseleave',()=>f(0))}
+bind('bl',v=>tb.l=v);bind('br',v=>tb.r=v);bind('bt',v=>{tb.t=v;if(v&&msgT>.5)next()});
+c.addEventListener('pointerdown',()=>{if(msgT>.5)next()});
+for(let i=0;i<90;i++)stars.push([Math.random(),Math.random()*.7,Math.random()*1.5+.3]);
+function mkTer(){const n=40;ter=[];pads=[];const np=Math.max(1,3-Math.floor((level-1)/2));const idx=[];while(idx.length<np){const i=3+Math.floor(Math.random()*(n-8));if(idx.every(j=>Math.abs(j-i)>4))idx.push(i)}
+let y=H*.75;for(let i=0;i<=n;i++){y+=(Math.random()-.5)*H*.18;y=Math.max(H*.45,Math.min(H*.95,y));ter.push([i/n*W,y])}
+idx.forEach((i,m)=>{const w=level>4?1:2;const py=ter[i][1];for(let j=0;j<=w;j++)ter[i+j][1]=py;pads.push({x1:ter[i][0],x2:ter[i+w][0],y:py,mult:[2,3,5][m%3]+(w==1?2:0)})})}
+function reset(full){if(full){score=0;level=1;lives=3}fuel=Math.max(400,1000-level*60);mkTer();s={x:W*.15+Math.random()*W*.7,y:40,vx:(Math.random()-.5)*40,vy:0,a:0};state='fly';msgT=0}
+function next(){reset(state=='over')}
+rs();addEventListener('resize',rs);reset(true);
+function groundAt(px){for(let i=0;i<ter.length-1;i++){const [x1,y1]=ter[i],[x2,y2]=ter[i+1];if(px>=x1&&px<=x2)return y1+(y2-y1)*(px-x1)/(x2-x1)}return H}
+function boom(){for(let i=0;i<50;i++)parts.push({x:s.x,y:s.y,vx:(Math.random()-.5)*300,vy:(Math.random()-.9)*250,l:1.2,c:Math.random()<.5?'#ff3df0':'#fd4'})}
+let last=performance.now();
+function loop(t){const dt=Math.min(.033,(t-last)/1000);last=t;if(started&&!paused)upd(dt);draw();requestAnimationFrame(loop)}
+function upd(dt){parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=60*dt;p.l-=dt});parts=parts.filter(p=>p.l>0);
+if(msgT>0){msgT+=dt;return}
+const L=k.ArrowLeft||k.KeyA||tb.l,R=k.ArrowRight||k.KeyD||tb.r,T=(k.ArrowUp||k.KeyW||k.Space||tb.t)&&fuel>0;
+if(L)s.a-=2.6*dt;if(R)s.a+=2.6*dt;
+s.vy+=(22+level*1.5)*dt;
+if(T){s.vx+=Math.sin(s.a)*60*dt;s.vy-=Math.cos(s.a)*60*dt;fuel-=45*dt;parts.push({x:s.x-Math.sin(s.a)*12,y:s.y+Math.cos(s.a)*12,vx:-Math.sin(s.a)*80+(Math.random()-.5)*30,vy:Math.cos(s.a)*80,l:.4,c:'#7ff'})}
+s.x+=s.vx*dt;s.y+=s.vy*dt;if(s.x<0)s.x+=W;if(s.x>W)s.x-=W;if(s.y<10){s.y=10;s.vy=Math.max(0,s.vy)}
+const gy=Math.min(groundAt(s.x-8),groundAt(s.x+8),groundAt(s.x));
+if(s.y+10>=gy){const pad=pads.find(p=>s.x-8>=p.x1&&s.x+8<=p.x2);const ang=Math.abs(Math.atan2(Math.sin(s.a),Math.cos(s.a)));
+if(pad&&s.vy<28&&Math.abs(s.vx)<18&&ang<.25){const g2=s.vy<12?2:1;const pts=Math.round(50*pad.mult*g2+fuel/4);score+=pts;level++;state='landed';msg=(g2==2?'PERFECT LANDING! +':'LANDED! +')+pts+' - tap or Enter';s.y=pad.y-10;s.vx=s.vy=0}
+else{boom();lives--;state=lives>0?'crash':'over';msg=lives>0?'CRASHED! '+lives+' lives left - tap or Enter':'GAME OVER - '+score+' - tap or Enter'}
+if(score>best){best=score;localStorage.setItem('lunarlander_best',best)}msgT=.01}}
+function draw(){x.fillStyle='#05010f';x.fillRect(0,0,W,H);x.fillStyle='#fff';x.globalAlpha=.6;stars.forEach(st=>x.fillRect(st[0]*W,st[1]*H,st[2],st[2]));x.globalAlpha=1;
+x.beginPath();x.moveTo(0,H);ter.forEach(p=>x.lineTo(p[0],p[1]));x.lineTo(W,H);x.closePath();x.fillStyle='#120630';x.fill();
+x.strokeStyle='#ff3df0';x.lineWidth=2;x.shadowColor='#ff3df0';x.shadowBlur=10;x.beginPath();ter.forEach((p,i)=>i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]));x.stroke();
+pads.forEach(p=>{x.strokeStyle='#4f8';x.shadowColor='#4f8';x.lineWidth=4;x.beginPath();x.moveTo(p.x1,p.y);x.lineTo(p.x2,p.y);x.stroke();x.fillStyle='#4f8';x.font='bold 13px system-ui';x.textAlign='center';x.fillText('x'+p.mult,(p.x1+p.x2)/2,p.y+18)});
+parts.forEach(p=>{x.globalAlpha=Math.max(0,p.l);x.fillStyle=p.c;x.fillRect(p.x,p.y,3,3)});x.globalAlpha=1;
+if(state=='fly'||state=='landed'){x.save();x.translate(s.x,s.y);x.rotate(s.a);x.strokeStyle='#7ff';x.shadowColor='#7ff';x.lineWidth=2;x.beginPath();x.arc(0,-3,7,0,7);x.moveTo(-8,4);x.lineTo(8,4);x.moveTo(-6,4);x.lineTo(-10,10);x.moveTo(6,4);x.lineTo(10,10);x.stroke();x.restore()}
+x.shadowBlur=0;const vc=(s.vy<28&&Math.abs(s.vx)<18)?'#4f8':'#f55';
+hud.innerHTML='SCORE '+score+' &nbsp; BEST '+best+' &nbsp; PAD '+level+' &nbsp; LIVES '+lives+'<br><span style="color:#fd4">FUEL '+Math.max(0,Math.round(fuel))+'</span> &nbsp; <span style="color:'+vc+'">FALL '+Math.round(s.vy)+' &nbsp; DRIFT '+Math.round(Math.abs(s.vx))+'</span>'+(paused?'<br>PAUSED':'');
+if(msgT>0){x.fillStyle='#fff';x.font='bold '+Math.min(22,W/24)+'px system-ui';x.textAlign='center';x.shadowColor='#ff3df0';x.shadowBlur=12;x.fillText(msg,W/2,H*.38);x.shadowBlur=0}}
+requestAnimationFrame(loop);
+</script></body></html>

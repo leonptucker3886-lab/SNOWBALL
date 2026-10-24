@@ -1,0 +1,74 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Neon Minesweeper | Arcadeline</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#05060f;overflow:hidden;font-family:"Courier New",monospace;color:#fff;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+#s{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .8s;z-index:10;background:#05060f}
+.p{letter-spacing:.5em;font-size:max(10px,2.2vmin);color:#9fdcff;opacity:0;animation:f 1s .3s forwards}
+#s h1{font-size:12vmin;margin:.3em 0;text-shadow:0 0 10px #7fd8ff,0 0 30px #ff3bd4;opacity:0;transform:scale(.3);animation:r 1.2s 1.5s cubic-bezier(.2,1.6,.4,1) forwards}
+.t{font-size:max(13px,3vmin);color:#ff8bf0;opacity:0;animation:f 1s 3s forwards}
+.b{width:50vmin;height:2.4vmin;border:2px solid #7fd8ff;border-radius:2vmin;margin-top:5vmin;overflow:hidden;box-shadow:0 0 12px #7fd8ff}
+.b i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7fd8ff,#ff3bd4);animation:g 6.2s .3s linear forwards}
+.ball{position:absolute;bottom:8vmin;left:-10vmin;width:4vmin;height:4vmin;border-radius:50%;background:#eaf8ff;box-shadow:0 0 15px #fff;animation:roll 6.4s .3s ease-in forwards}
+@keyframes f{to{opacity:1}}@keyframes r{to{opacity:1;transform:scale(1)}}@keyframes g{to{width:100%}}
+@keyframes roll{to{left:110vw;width:14vmin;height:14vmin;transform:rotate(1080deg)}}
+#ov{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:#05060fdd;text-align:center;padding:4vmin;z-index:5}
+#ov h2{font-size:max(28px,9vmin);margin:0;text-shadow:0 0 10px #7fd8ff,0 0 30px #ff3bd4}
+#ov p{font-size:max(14px,3vmin);color:#ccd;max-width:90vw}
+button{font:inherit;font-size:max(16px,3.6vmin);padding:1.6vmin 4vmin;border:2px solid #ff3bd4;border-radius:3vmin;background:#1a0a2a;color:#fff;box-shadow:0 0 12px #ff3bd4}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:12px 2vw 14px}
+#hud{width:100%;max-width:600px;display:flex;justify-content:space-between;font-size:max(14px,3.2vmin);color:#9fdcff;text-shadow:0 0 8px #7fd8ff}
+canvas{touch-action:none;display:block;border-radius:8px;box-shadow:0 0 18px #7fd8ff55}
+#bar{display:flex;gap:3vw;flex-wrap:wrap;justify-content:center}
+#fl.on{background:#ff3bd4;color:#05060f}
+</style></head><body>
+<div id="s"><div class="p">LEONLINK PRESENTS</div><h1>ARCADELINE</h1><div class="t">Start small. Roll big.</div><div class="b"><i></i></div><div class="ball"></div></div>
+<div id="app"><div id="hud"><span id="bs">BEST -</span><span id="info">MINES 0</span><span id="tm">0s</span></div>
+<canvas id="c"></canvas>
+<div id="bar"><button id="fl">&#9873; FLAG: OFF</button><button id="lv">EASY</button><button id="nw">NEW</button></div></div>
+<div id="ov"><h2 id="ttl"></h2><p id="msg"></p><button id="go">PLAY</button></div>
+<script>
+const $=i=>document.getElementById(i),cv=$('c'),x=cv.getContext('2d');
+const L=[['EASY',8,10,10],['MEDIUM',10,14,24],['HARD',12,18,45]];
+let li=0,W,H,M,g,first,over,flag=false,cur={x:0,y:0},t0=0,el=0,run=false,paused=false,cs,left,kb=false,lp=null,lpd=false;
+const best=()=>JSON.parse(localStorage.getItem('nmsBest')||'{}');
+function setup(){[,W,H,M]=L[li];g=[];for(let i=0;i<W*H;i++)g.push({m:0,o:0,f:0,n:0});first=true;over=false;el=0;run=false;left=W*H-M;cur={x:W>>1,y:H>>1};$('lv').textContent=L[li][0];hud();size();draw()}
+function hud(){const b=best()[L[li][0]];$('bs').textContent='BEST '+(b?b+'s':'-');$('info').textContent='MINES '+(M-g.filter(c=>c.f).length);$('tm').textContent=Math.floor(el)+'s'}
+function size(){const aw=innerWidth*.96,ah=innerHeight-150;cs=Math.floor(Math.min(aw/W,ah/H));const d=devicePixelRatio||1;cv.width=W*cs*d;cv.height=H*cs*d;cv.style.width=W*cs+'px';cv.style.height=H*cs+'px';x.setTransform(d,0,0,d,0,0)}
+const nb=(i,f)=>{const cx=i%W,cy=i/W|0;for(let dy=-1;dy<2;dy++)for(let dx=-1;dx<2;dx++){const a=cx+dx,b=cy+dy;if((dx||dy)&&a>=0&&b>=0&&a<W&&b<H)f(b*W+a)}};
+function plant(s){const safe=new Set([s]);nb(s,j=>safe.add(j));let k=0;while(k<M){const r=Math.random()*W*H|0;if(!safe.has(r)&&!g[r].m){g[r].m=1;k++}}g.forEach((c,i)=>{nb(i,j=>c.n+=g[j].m)})}
+function open(i){const c=g[i];if(over||c.o||c.f)return;if(first){plant(i);first=false;run=true;t0=performance.now()}
+ if(c.m){c.o=1;c.boom=1;end(false);return}
+ const st=[i];while(st.length){const k=st.pop(),d=g[k];if(d.o||d.f)continue;d.o=1;left--;if(!d.n)nb(k,j=>{if(!g[j].o&&!g[j].m)st.push(j)})}
+ if(left<=0)end(true)}
+function chord(i){const c=g[i];if(!c.n)return;let f=0;nb(i,j=>f+=g[j].f);if(f==c.n)nb(i,j=>open(j))}
+function act(i,fm){if(over)return;const c=g[i];if(c.o)chord(i);else if(fm){if(!first)c.f^=1}else open(i);hud();draw()}
+function show(t,m,b,fn){$('ttl').textContent=t;$('msg').innerHTML=m;$('go').textContent=b;$('go').onclick=fn;$('ov').style.display='flex'}
+function end(win){over=true;run=false;g.forEach(c=>{if(c.m){if(win)c.f=1;else c.o=1}});let m='';
+ if(win){const s=Math.round(el*10)/10,b=best(),k=L[li][0];if(!b[k]||s<b[k]){b[k]=s;localStorage.setItem('nmsBest',JSON.stringify(b));m='New best time! '}m+='Cleared '+k+' in '+s+'s.'}else m='You hit a mine. Try again!';
+ draw();setTimeout(()=>{hud();show(win?'CLEARED!':'BOOM!',m,'PLAY AGAIN',()=>{$('ov').style.display='none';setup()})},700)}
+const C=['','#7fd8ff','#5dff9b','#ff6b8b','#c08bff','#ffb84d','#4dfff0','#ff8bf0','#fff'];
+function draw(){x.clearRect(0,0,W*cs,H*cs);x.textAlign='center';x.textBaseline='middle';x.font='bold '+(cs*.6|0)+'px Courier New';
+ g.forEach((c,i)=>{const px=(i%W)*cs,py=(i/W|0)*cs;
+  if(c.o){x.fillStyle=c.boom?'#ff2a55':'#0b1024';x.fillRect(px+1,py+1,cs-2,cs-2);
+   if(c.m){x.fillStyle='#ff3bd4';x.shadowColor='#ff3bd4';x.shadowBlur=10;x.beginPath();x.arc(px+cs/2,py+cs/2,cs*.25,0,7);x.fill();x.shadowBlur=0}
+   else if(c.n){x.fillStyle=C[c.n];x.shadowColor=C[c.n];x.shadowBlur=8;x.fillText(c.n,px+cs/2,py+cs/2+1);x.shadowBlur=0}}
+  else{x.fillStyle='#1b2350';x.fillRect(px+1,py+1,cs-2,cs-2);x.strokeStyle='#7fd8ff66';x.strokeRect(px+2,py+2,cs-4,cs-4);
+   if(c.f){x.fillStyle='#ffe14d';x.shadowColor='#ffe14d';x.shadowBlur=8;x.fillText('\u2691',px+cs/2,py+cs/2+1);x.shadowBlur=0}}});
+ if(kb){x.strokeStyle='#ff3bd4';x.lineWidth=3;x.strokeRect(cur.x*cs+2,cur.y*cs+2,cs-4,cs-4);x.lineWidth=1}}
+const cell=e=>{const r=cv.getBoundingClientRect(),cx=Math.floor((e.clientX-r.left)/cs),cy=Math.floor((e.clientY-r.top)/cs);return cx>=0&&cy>=0&&cx<W&&cy<H?cy*W+cx:-1};
+cv.addEventListener('pointerdown',e=>{e.preventDefault();kb=false;if(paused)return;const i=cell(e);if(i<0)return;lpd=false;cv.dataset.i=i;if(e.button==2){lpd=true;act(i,true);return}
+ lp=setTimeout(()=>{lpd=true;act(i,true);navigator.vibrate&&navigator.vibrate(30)},400)});
+cv.addEventListener('pointerup',e=>{clearTimeout(lp);if(lpd||paused)return;const i=+cv.dataset.i;if(cell(e)==i)act(i,flag)});
+cv.addEventListener('pointercancel',()=>clearTimeout(lp));cv.addEventListener('contextmenu',e=>e.preventDefault());
+$('fl').onclick=()=>{flag=!flag;$('fl').classList.toggle('on',flag);$('fl').innerHTML='&#9873; FLAG: '+(flag?'ON':'OFF')};
+$('lv').onclick=()=>{li=(li+1)%3;setup()};$('nw').onclick=setup;
+function resume(){paused=false;$('ov').style.display='none';t0=performance.now()-el*1000}
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();
+ if(k=='p'){if(over)return;if(paused)resume();else if($('ov').style.display!='flex'){paused=true;show('PAUSED','Press P or tap RESUME.','RESUME',resume)}return}
+ if(paused||$('ov').style.display=='flex')return;kb=true;const d={arrowleft:[-1,0],a:[-1,0],arrowright:[1,0],d:[1,0],arrowup:[0,-1],w:[0,-1],arrowdown:[0,1],s:[0,1]}[k];
+ if(d){cur.x=(cur.x+d[0]+W)%W;cur.y=(cur.y+d[1]+H)%H;e.preventDefault()}else if(k==' '||k=='enter'){act(cur.y*W+cur.x,false);e.preventDefault()}else if(k=='f')act(cur.y*W+cur.x,true);else if(k=='n')setup();else if(k=='l')$('lv').onclick();draw()});
+addEventListener('resize',()=>{size();draw()});
+(function loop(){if(run&&!paused){el=(performance.now()-t0)/1000;$('tm').textContent=Math.floor(el)+'s'}requestAnimationFrame(loop)})();
+setup();
+setTimeout(()=>{$('s').style.opacity=0;setTimeout(()=>{$('s').remove();show('NEON MINESWEEPER','Open every safe tile without hitting a mine. Numbers show how many mines touch that tile. Your first tap is always safe.<br>Touch: tap to open, long-press (or turn FLAG on) to flag. Tap an opened number to clear around it once its flags match. EASY/MEDIUM/HARD switches size.<br>Keys: arrows/WASD move, Space/Enter open, F flag, N new, L level, P pause.','PLAY',()=>{$('ov').style.display='none'})},800)},6200);
+</script></body></html>
