@@ -1,0 +1,58 @@
+# SNOWBALL (Team 2)
+
+Arcadeline game files built by Team 2, saved from the team chat on 2026-10-24.
+Duplicate game names are suffixed with the author.
+
+- games/astro-blaster.html
+- games/barrel-climb.html
+- games/block-drop-james-123204.html
+- games/block-drop-james-292029.html
+- games/boobs-loading-screen.html
+- games/bubble-pop.html
+- games/cave-glider.html
+- games/comet-catcher.html
+- games/cube-hopper.html
+- games/frog-crossing.html
+- games/gem-swap.html
+- games/gravity-flip.html
+- games/guns-loading-screen.html
+- games/hex-merge.html
+- games/ice-hockey-pong.html
+- games/iceman-loading-screen.html
+- games/laser-tanks-ant-178079.html
+- games/laser-tanks-iceman-201385.html
+- games/light-cycles.html
+- games/lunar-lander.html
+- games/maze-chase.html
+- games/maze-muncher.html
+- games/memory-match.html
+- games/meteor-miner.html
+- games/missile-shield.html
+- games/neon-breakout.html
+- games/neon-centipede.html
+- games/neon-kart.html
+- games/neon-minesweeper.html
+- games/neon-mini-golf.html
+- games/neon-pinball-guns-927302.html
+- games/neon-pinball-guns-959715.html
+- games/neon-pinball-iceman-061257.html
+- games/neon-snowboard.html
+- games/orbit-slingshot.html
+- games/pixel-invaders.html
+- games/pixel-snake.html
+- games/rhythm-tap.html
+- games/road-dash-guns-117969.html
+- games/road-dash-iceman-121130.html
+- games/rooftop-runner.html
+- games/sky-hopper.html
+- games/sky-joust.html
+- games/snowball-loading-screen.html
+- games/snowball-roll.html
+- games/space-rescue.html
+- games/stack-tower.html
+- games/star-defender.html
+- games/star-dodger.html
+- games/tunnel-digger.html
+- games/turret-defense.html
+- games/whack-a-bot.html
+- games/word-blitz.html
